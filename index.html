@@ -907,8 +907,23 @@ function switchStation(el) {
   fetchData();
 }
 
+function isNightMode() {
+  const h = new Date().getHours();
+  return h >= 1 && h < 6;
+}
+
 // ─── FETCH ────────────────────────────────────────────────
 async function fetchData() {
+  if (isNightMode()) {
+    document.getElementById('trains-list').innerHTML = `
+      <div class="error-card" style="border-color:rgba(79,142,247,0.2);background:rgba(79,142,247,0.06);color:var(--muted)">
+        Mode nuit — reprise a 6h00
+      </div>`;
+    document.getElementById('perturbations-live').innerHTML = '';
+    document.getElementById('perturbations-dated').innerHTML = '';
+    document.getElementById('planning-section').style.display = 'none';
+    return;
+  }
   document.getElementById('station-selector').classList.add('visible');
   const btn = document.getElementById('refresh-btn');
   btn.classList.add('spinning');
