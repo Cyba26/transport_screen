@@ -115,34 +115,52 @@
     box-shadow: 0 0 20px rgba(79,142,247,0.3);
   }
 
-  /* WALK TIME BANNER */
-  .walk-banner {
+  /* WALK TAG (inline in subtitle) */
+  .walk-tag {
+    display: inline-block;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--accent);
+    background: rgba(79,142,247,0.1);
+    padding: 1px 6px;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-left: 6px;
+    transition: background 0.2s;
+  }
+  .walk-tag:active { background: rgba(79,142,247,0.2); }
+
+  /* WALK TIME POPUP */
+  .walk-popup {
     background: var(--surface);
     border: 1px solid var(--border);
     border-radius: 14px;
     padding: 12px 16px;
-    display: flex;
+    display: none;
     align-items: center;
     gap: 10px;
     box-shadow: var(--shadow);
+    animation: slideIn 0.2s ease forwards;
   }
 
-  .walk-banner .icon {
+  .walk-popup.visible { display: flex; }
+
+  .walk-popup .icon {
     font-size: 18px;
     opacity: 0.8;
   }
 
-  .walk-banner .walk-text {
+  .walk-popup .walk-text {
     font-size: 13px;
     color: var(--muted);
   }
 
-  .walk-banner .walk-text strong {
+  .walk-popup .walk-text strong {
     color: var(--text);
     font-weight: 600;
   }
 
-  .walk-banner input[type=range] {
+  .walk-popup input[type=range] {
     margin-left: auto;
     width: 80px;
     accent-color: var(--accent);
@@ -469,10 +487,6 @@
     box-shadow: var(--shadow);
   }
   .theme-toggle:active { transform: scale(0.9); }
-    font-family: 'DM Mono', monospace;
-    font-size: 13px;
-    color: var(--muted);
-  }
 
   /* OPTIONAL STATIONS */
   .optional-stations {
@@ -508,7 +522,7 @@
   <div class="header">
     <div class="station-info">
       <h1 id="station-name">Laplace</h1>
-      <div class="subtitle">→ Paris • <span class="clock" id="clock">--:--</span></div>
+      <div class="subtitle">→ Paris • <span class="clock" id="clock">--:--</span> <span class="walk-tag" id="walk-tag" onclick="toggleWalkPopup()" title="Temps de marche">🚶 5m</span></div>
     </div>
     <div style="display:flex;gap:8px;align-items:center">
       <button class="theme-toggle" id="theme-btn" onclick="toggleTheme()" title="Changer le thème">☀️</button>
@@ -533,10 +547,10 @@
     <div class="station-pill" data-station="barbara" onclick="switchStation(this)">Barbara</div>
   </div>
 
-  <!-- WALK TIME -->
-  <div class="walk-banner">
+  <!-- WALK TIME POPUP (hidden by default) -->
+  <div class="walk-popup" id="walk-popup">
     <span class="icon">🚶</span>
-    <span class="walk-text">Marche à pied : <strong id="walk-label">5 min</strong></span>
+    <span class="walk-text">Marche : <strong id="walk-label">5 min</strong></span>
     <input type="range" id="walk-slider" min="1" max="15" value="5" oninput="updateWalk(this.value)" />
     <span class="walk-value" id="walk-display">5m</span>
   </div>
@@ -600,7 +614,7 @@ const STATIONS = {
 
 const PARIS_KEYWORDS = ["paris", "denfert", "luxemburg", "saint-michel", "chatelet", "gare du nord", "cdg", "roissy", "mitry"];
 const MAX_TRAINS = 3;
-const REFRESH_INTERVAL = 30000; // 30s
+const REFRESH_INTERVAL = 10000; // 10s
 
 let walkMinutes = 5;
 let currentStation = 'laplace';
@@ -629,13 +643,31 @@ function updateClock() {
 setInterval(updateClock, 1000);
 updateClock();
 
-// ─── WALK TIME ────────────────────────────────────────────
+// ─── WALK TIME (per station) ─────────────────────────────
+function getWalkKey() {
+  return `walk_minutes_${currentStation}`;
+}
+
 function updateWalk(val) {
   walkMinutes = parseInt(val);
   document.getElementById('walk-label').textContent = `${val} min`;
   document.getElementById('walk-display').textContent = `${val}m`;
-  localStorage.setItem('walk_minutes', val);
+  document.getElementById('walk-tag').textContent = `🚶 ${val}m`;
+  localStorage.setItem(getWalkKey(), val);
   renderTrainsFromCache();
+}
+
+function loadWalkForStation() {
+  const saved = localStorage.getItem(getWalkKey());
+  walkMinutes = saved ? parseInt(saved) : 5;
+  document.getElementById('walk-slider').value = walkMinutes;
+  document.getElementById('walk-label').textContent = `${walkMinutes} min`;
+  document.getElementById('walk-display').textContent = `${walkMinutes}m`;
+  document.getElementById('walk-tag').textContent = `🚶 ${walkMinutes}m`;
+}
+
+function toggleWalkPopup() {
+  document.getElementById('walk-popup').classList.toggle('visible');
 }
 
 function renderTrainsFromCache() {
@@ -654,6 +686,8 @@ function switchStation(el) {
   badge.textContent = st.lineName;
   badge.style.background = st.lineColor;
   badge.style.boxShadow = `0 0 20px ${st.lineColor}66`;
+  loadWalkForStation();
+  document.getElementById('walk-popup').classList.remove('visible');
   document.getElementById('trains-list').innerHTML = `
     <div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>`;
   document.getElementById('perturbations').innerHTML = `<div class="skeleton" style="height:50px"></div>`;
@@ -800,7 +834,7 @@ function renderPerturbations(messages) {
   if (active.length === 0) {
     container.innerHTML = `
       <div class="no-perturbation">
-        <span>✓</span> Trafic normal sur le RER B
+        <span>✓</span> Trafic normal sur la ligne ${STATIONS[currentStation].lineName}
       </div>`;
     return;
   }
@@ -838,14 +872,7 @@ function applyTheme() {
 // ─── INIT ─────────────────────────────────────────────────
 function init() {
   applyTheme();
-  // Restore walk time
-  const savedWalk = localStorage.getItem('walk_minutes');
-  if (savedWalk) {
-    walkMinutes = parseInt(savedWalk);
-    document.getElementById('walk-slider').value = walkMinutes;
-    document.getElementById('walk-label').textContent = `${walkMinutes} min`;
-    document.getElementById('walk-display').textContent = `${walkMinutes}m`;
-  }
+  loadWalkForStation();
 
   // Check API key
   const apiKey = getApiKey();
