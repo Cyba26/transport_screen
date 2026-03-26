@@ -410,6 +410,41 @@
     opacity: 1;
   }
 
+  /* FREQUENCY BANNER */
+  .freq-banner {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 16px 18px;
+    box-shadow: var(--shadow);
+    animation: slideIn 0.3s ease forwards;
+    opacity: 0;
+    text-align: center;
+  }
+
+  .freq-banner .freq-value {
+    font-family: 'DM Mono', monospace;
+    font-size: 28px;
+    font-weight: 500;
+    color: var(--accent);
+    line-height: 1;
+  }
+
+  .freq-banner .freq-label {
+    font-size: 13px;
+    color: var(--muted);
+    margin-top: 6px;
+  }
+
+  .freq-banner .freq-next {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    color: var(--text);
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border);
+  }
+
   /* PERTURBATIONS */
   .perturbations {
     display: flex;
@@ -828,13 +863,56 @@ function renderTrains(visits) {
     return { visit: v, depTime, diffMins, adjustedMins };
   }).filter(Boolean);
 
-  // Show at most 1 missed train (the most recent one) + next 2 catchable
+  // Split missed vs catchable (based on walk time)
   const missed = withTiming.filter(t => t.adjustedMins <= 0);
   const catchable = withTiming.filter(t => t.adjustedMins > 0);
 
+  // Calculate frequency from all trains
+  let freqMin = null;
+  if (withTiming.length >= 2) {
+    const gaps = [];
+    for (let j = 1; j < withTiming.length; j++) {
+      const gap = Math.round((withTiming[j].depTime - withTiming[j - 1].depTime) / 60000);
+      if (gap > 0 && gap < 30) gaps.push(gap);
+    }
+    if (gaps.length > 0) {
+      freqMin = Math.round(gaps.reduce((a, b) => a + b, 0) / gaps.length);
+    }
+  }
+
+  // If no catchable trains, show frequency + next estimated
+  if (catchable.length === 0) {
+    let freqHtml = '';
+    if (freqMin) {
+      // Estimate next catchable: walk time from now + next train after that
+      const nextEstimated = new Date(now.getTime() + walkMinutes * 60000 + freqMin * 60000);
+      const nextStr = nextEstimated.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+      const leaveEstimated = new Date(nextEstimated.getTime() - walkMinutes * 60000);
+      const leaveStr = leaveEstimated.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+
+      freqHtml = `
+        <div class="freq-banner">
+          <div class="freq-value">~${freqMin} min</div>
+          <div class="freq-label">frequence actuelle sur la ligne</div>
+          <div class="freq-next">prochain attrapable vers <strong>${nextStr}</strong> — partir ~${leaveStr}</div>
+        </div>`;
+    } else {
+      freqHtml = `<div class="error-card">Aucun passage attrapable — verifie les perturbations</div>`;
+    }
+    container.innerHTML = freqHtml;
+    return;
+  }
+
+  // Normal display: max 1 missed + 2 catchable
   const toShow = [];
-  if (missed.length > 0) toShow.push(missed[missed.length - 1]); // last missed = closest
+  if (missed.length > 0) toShow.push(missed[missed.length - 1]);
   toShow.push(...catchable.slice(0, MAX_TRAINS - toShow.length));
+
+  // Add frequency info if available
+  let freqTag = '';
+  if (freqMin) {
+    freqTag = `<div style="text-align:center;font-family:'DM Mono',monospace;font-size:11px;color:var(--muted);margin-top:-4px">frequence ~${freqMin} min</div>`;
+  }
 
   if (toShow.length === 0) {
     container.innerHTML = `<div class="error-card">Aucun passage trouve pour cette station.</div>`;
@@ -847,7 +925,6 @@ function renderTrains(visits) {
     const mission = journey?.JourneyNote?.[0]?.value || '';
     const timeStr = t.depTime.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 
-    // "Partir a" = heure du train - temps de marche
     const leaveAt = new Date(t.depTime.getTime() - walkMinutes * 60000);
     const leaveStr = leaveAt.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 
@@ -876,7 +953,7 @@ function renderTrains(visits) {
           <div class="leave-time${lateClass}">${t.adjustedMins <= 0 ? `parti ${leaveStr}` : `partir ${leaveStr}`}</div>
         </div>
       </div>`;
-  }).join('');
+  }).join('') + freqTag;
 }
 
 // ─── RENDER PERTURBATIONS ─────────────────────────────────
