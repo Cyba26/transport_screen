@@ -1430,13 +1430,15 @@ function renderPerturbations(messages) {
     return { m, content, severity, route, plans, affectsToday, earliestDate };
   });
 
-  // Sort: today first, then by earliest date, then unknown dates last
+  // Sort: no date = top (urgent/live), then today, then by earliest date
   processed.sort((a, b) => {
+    const aNoDate = !a.earliestDate;
+    const bNoDate = !b.earliestDate;
+    if (aNoDate && !bNoDate) return -1;
+    if (!aNoDate && bNoDate) return 1;
     if (a.affectsToday && !b.affectsToday) return -1;
     if (!a.affectsToday && b.affectsToday) return 1;
     if (a.earliestDate && b.earliestDate) return a.earliestDate - b.earliestDate;
-    if (a.earliestDate) return -1;
-    if (b.earliestDate) return 1;
     return 0;
   });
 
