@@ -812,16 +812,16 @@
     <div class="skeleton"></div>
   </div>
 
-  <!-- PERTURBATIONS -->
-  <div class="section-label" style="margin-bottom:-8px">Trafic</div>
-  <div class="perturbations" id="perturbations">
-    <div class="skeleton" style="height:50px"></div>
-  </div>
-
   <!-- PLANNING -->
   <div class="planning-section" id="planning-section" style="display:none">
     <div class="planning-title">Planning perturbations</div>
     <div id="planning-calendar"></div>
+  </div>
+
+  <!-- PERTURBATIONS -->
+  <div class="section-label" style="margin-bottom:-8px">Trafic</div>
+  <div class="perturbations" id="perturbations">
+    <div class="skeleton" style="height:50px"></div>
   </div>
 
   <!-- FOOTER -->
@@ -1246,6 +1246,7 @@ function parsePlanningFromText(text) {
   }
 
   const t = text.replace(/\s+/g, ' ');
+  let foundDate = null; // track the main date for "jusqu'a Xh" context
 
   // "du 5 avril au 12 avril" / "du 5 au 12 avril"
   const duAu = t.match(/du\s+(\d{1,2})\s+(\w+)\s+au\s+(\d{1,2})\s+(\w+)/i)
@@ -1262,6 +1263,7 @@ function parsePlanningFromText(text) {
     if (from && to) {
       const isNow = now >= from && now <= new Date(to.getTime() + 86400000);
       plans.push({ from, to, isNow, label: `${fmt(from)} → ${fmt(to)}` });
+      foundDate = from;
     }
   }
 
@@ -1270,12 +1272,20 @@ function parsePlanningFromText(text) {
   if (leDate && !duAu) {
     const d = parseDate(leDate[1], leDate[2]);
     if (d) {
+      foundDate = d;
       let label = fmt(d);
-      let from = d, to = new Date(d.getTime() + 86400000);
+      let from = new Date(d), to = new Date(d.getTime() + 86400000);
       if (leDate[3] && leDate[4]) {
         from = new Date(d); from.setHours(parseInt(leDate[3]), 0);
         to = new Date(d); to.setHours(parseInt(leDate[4]), 0);
         label += ` ${leDate[3]}h-${leDate[4]}h`;
+      }
+      // Check for "jusqu'a Xh" in same text → combine with this date
+      const jusquaH = t.match(/jusqu[''`](?:au|à)\s+(\d{1,2})[h:]\s*(\d{0,2})/i);
+      if (jusquaH) {
+        to = new Date(d);
+        to.setHours(parseInt(jusquaH[1]), parseInt(jusquaH[2] || '0'), 0);
+        label = `${fmt(d)} jusqu'a ${jusquaH[1]}h${jusquaH[2] || ''}`;
       }
       const isNow = now >= from && now <= to;
       plans.push({ from, to, isNow, label });
@@ -1287,26 +1297,23 @@ function parsePlanningFromText(text) {
   if (aPartir && !duAu && !leDate) {
     const d = parseDate(aPartir[1], aPartir[2]);
     if (d) {
+      foundDate = d;
       const isNow = now >= d;
       plans.push({ from: d, to: null, isNow, label: `a partir du ${fmt(d)}` });
     }
   }
 
-  // "jusqu'au 5 avril" / "jusqu'à 14h" / "jusqu'à 14:00"
-  const jusqua = t.match(/jusqu[''`](?:au|à)\s+(?:(\d{1,2})\s+(\w+)|(\d{1,2})[h:]\s*(\d{0,2}))/i);
-  if (jusqua) {
-    if (jusqua[1] && jusqua[2]) {
-      const d = parseDate(jusqua[1], jusqua[2]);
+  // "jusqu'au 5 avril" (date, not just time - only if no "le" date found)
+  if (!leDate) {
+    const jusquaDate = t.match(/jusqu[''`](?:au|à)\s+(\d{1,2})\s+(\w+)/i);
+    if (jusquaDate) {
+      const d = parseDate(jusquaDate[1], jusquaDate[2]);
       if (d) {
+        // Use today as start if no other date found
+        const from = foundDate || new Date(now.getFullYear(), now.getMonth(), now.getDate());
         const isNow = now <= new Date(d.getTime() + 86400000);
-        plans.push({ from: null, to: d, isNow, label: `jusqu'au ${fmt(d)}` });
+        plans.push({ from, to: d, isNow, label: `jusqu'au ${fmt(d)}` });
       }
-    } else if (jusqua[3]) {
-      const d = new Date(now);
-      d.setHours(parseInt(jusqua[3]), parseInt(jusqua[4] || '0'), 0);
-      if (d < now) d.setDate(d.getDate() + 1);
-      const isNow = now <= d;
-      plans.push({ from: null, to: d, isNow, label: `jusqu'a ${fmtH(d)}` });
     }
   }
 
@@ -1346,6 +1353,16 @@ function renderPerturbations(messages) {
     // Downgrade severity if it's another branch
     if (route === 'other') severity = 'info';
 
+    // Parse planning from text
+    const plans = parsePlanningFromText(content);
+
+    // If perturbation is not yet active (all dates in the future), downgrade to warn
+    const now2 = new Date();
+    const allFuture = plans.length > 0 && plans.every(p => p.from && p.from > now2);
+    if (allFuture && severity === 'critical') severity = 'warn';
+
+    plans.forEach(p => allPlans.push({ ...p, severity }));
+
     const sevClass = `sev-${severity}`;
     const sevIcon = severity === 'critical' ? '⛔' : severity === 'warn' ? '⚠' : 'ℹ';
     const sevLabel = severity === 'critical' ? 'Perturbation' : severity === 'warn' ? 'Info trafic' : 'Information';
@@ -1354,10 +1371,6 @@ function renderPerturbations(messages) {
     let routeTag = '';
     if (route === 'other') routeTag = '<span class="pert-branch-tag other">autre branche</span>';
     else if (route === 'mine') routeTag = '<span class="pert-branch-tag mine">mon trajet</span>';
-
-    // Parse planning from text
-    const plans = parsePlanningFromText(content);
-    plans.forEach(p => allPlans.push({ ...p, severity }));
 
     let planningHtml = '';
     if (plans.length > 0) {
@@ -1386,7 +1399,10 @@ function renderPlanningCalendar(plans) {
   const section = document.getElementById('planning-section');
   const cal = document.getElementById('planning-calendar');
 
-  if (plans.length === 0 || !plans.some(p => p.from || p.to)) {
+  // Only keep plans with actual date ranges (both from and to must exist)
+  const datedPlans = plans.filter(p => p.from && p.to);
+
+  if (datedPlans.length === 0) {
     section.style.display = 'none';
     return;
   }
@@ -1397,20 +1413,29 @@ function renderPlanningCalendar(plans) {
 
   // Start from monday of current week
   const startOfWeek = new Date(today);
-  const dow = startOfWeek.getDay() || 7; // 1=Mon...7=Sun
+  const dow = startOfWeek.getDay() || 7;
   startOfWeek.setDate(startOfWeek.getDate() - (dow - 1));
 
-  // 13 weeks = ~3 months
-  const WEEKS = 13;
+  // Find the last perturbation date to limit calendar
+  let lastPertDate = new Date(0);
+  for (const p of datedPlans) {
+    if (p.to && p.to > lastPertDate) lastPertDate = p.to;
+  }
+  // Add 1 week buffer after last perturbation
+  const calEnd = new Date(lastPertDate.getTime() + 7 * 86400000);
+  // Cap at 13 weeks
+  const maxEnd = new Date(startOfWeek.getTime() + 13 * 7 * 86400000);
+  const effectiveEnd = calEnd < maxEnd ? calEnd : maxEnd;
+
   const dayLabels = ['L','M','M','J','V','S','D'];
 
   // Check if a day falls within any perturbation period
   function getDayStatus(day) {
     let maxSev = null;
     const dayEnd = new Date(day.getTime() + 86400000);
-    for (const p of plans) {
-      const from = p.from || new Date(0);
-      const to = p.to ? new Date(p.to.getTime() + 86400000) : new Date(now.getFullYear() + 1, 0, 1);
+    for (const p of datedPlans) {
+      const from = p.from;
+      const to = new Date(p.to.getTime() + 86400000);
       if (day < to && dayEnd > from) {
         if (p.severity === 'critical') return 'critical';
         if (p.severity === 'warn') maxSev = 'warn';
@@ -1425,13 +1450,13 @@ function renderPlanningCalendar(plans) {
   let html = `<div class="planning-day-labels">${dayLabels.map(d => `<span>${d}</span>`).join('')}</div>`;
   html += '<div class="planning-grid">';
 
-  for (let w = 0; w < WEEKS; w++) {
+  let w = 0;
+  while (true) {
     const weekStart = new Date(startOfWeek);
     weekStart.setDate(weekStart.getDate() + w * 7);
+    if (weekStart >= effectiveEnd) break;
 
-    // Week label = "26 mar"
     const label = `${weekStart.getDate()} ${monthNames[weekStart.getMonth()]}`;
-
     html += `<div class="planning-week"><div class="planning-week-label">${label}</div>`;
 
     for (let d = 0; d < 7; d++) {
@@ -1448,10 +1473,10 @@ function renderPlanningCalendar(plans) {
       if (status === 'critical') classes += ' has-critical';
       else if (status === 'warn' || status === 'info') classes += ' has-pert';
 
-      const title = `${day.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })}${status ? ' — perturbation' : ''}`;
-      html += `<div class="${classes}" title="${title}"></div>`;
+      html += `<div class="${classes}"></div>`;
     }
     html += '</div>';
+    w++;
   }
 
   html += '</div>';
