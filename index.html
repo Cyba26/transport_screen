@@ -469,6 +469,11 @@
   }
   .perturbation-card.sev-info .pert-title { color: #4f8ef7; }
 
+  /* "En cours" active perturbation — orange left stroke */
+  .perturbation-card.is-active {
+    border-left: 3px solid #f59e0b;
+  }
+
   /* Severity: warn (orange) */
   .perturbation-card.sev-warn {
     background: rgba(245,158,11,0.06);
@@ -595,14 +600,14 @@
     min-width: 0;
   }
 
-  /* Current week = bigger */
+  /* Current week = much bigger */
   .planning-week.current-week .planning-day {
-    height: 24px;
-    border-radius: 4px;
+    height: 36px;
+    border-radius: 6px;
   }
   .planning-week.current-week .planning-week-label {
-    font-size: 10px;
-    font-weight: 600;
+    font-size: 11px;
+    font-weight: 700;
     color: var(--accent);
   }
 
@@ -859,11 +864,12 @@ const STATIONS = {
     // Arrets sur MON trajet (Laplace → Chatelet max)
     myStops: ['laplace','arcueil','bagneux','gentilly','denfert','port-royal','luxembourg',
               'saint-michel','chatelet','les halles'],
-    // Arrets hors de mon trajet (branches nord + branches sud)
+    // Arrets branche sud (Robinson/Massy) — perturbation ici + myStop = m'affecte
     otherBranch: ['robinson','sceaux','fontenay','croix de berny','massy','palaiseau',
-                  'orsay','gif','saint-remy','limours','lozere','bures',
-                  'gare du nord','aulnay','roissy','cdg','aeroport','mitry','sevran',
-                  'villepinte','drancy','blanc-mesnil','bourget'],
+                  'orsay','gif','saint-remy','limours','lozere','bures'],
+    // Arrets au-delà de mon terminal (nord de Chatelet) — perturbation ici + myStop = m'affecte PAS
+    beyondTerminal: ['gare du nord','aulnay','roissy','cdg','aeroport','mitry','sevran',
+                     'villepinte','drancy','blanc-mesnil','bourget'],
   },
   bicetre: {
     name: "Hôp. Bicêtre",
@@ -876,6 +882,7 @@ const STATIONS = {
               'saint-lazare','pont cardinet','saint-ouen','mairie','clichy',
               'saint-denis','pleyel'],
     otherBranch: ['orly','aeroport','morangis','chevilly','thiais','villejuif'],
+    beyondTerminal: [],
   },
   barbara: {
     name: "Barbara",
@@ -888,6 +895,7 @@ const STATIONS = {
               'saint-germain','chatelet','gare du nord','gare de l\'est',
               'strasbourg','barbes','clignancourt','marcadet','simplon'],
     otherBranch: ['bagneux','lucie aubrac','mairie de montrouge'],
+    beyondTerminal: [],
   }
 };
 
@@ -1203,6 +1211,8 @@ function checkRouteRelevance(text) {
   const t = text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   const normalize = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 
+  const beyond = station.beyondTerminal || [];
+
   // First check "entre X et Y" / "de X a Y" patterns — most precise
   const deA = t.match(/(?:entre|de)\s+([a-z\s'''.,-]+?)\s+(?:et|a|à)\s+([a-z\s'''.,-]+?)(?:\s+en\b|\s+du\b|\s+le\b|\s+pour\b|\s*[.,;]|$)/);
   if (deA) {
@@ -1212,28 +1222,37 @@ function checkRouteRelevance(text) {
     const seg2Mine = station.myStops.some(s => seg2.includes(normalize(s)));
     const seg1Other = station.otherBranch.some(s => seg1.includes(normalize(s)));
     const seg2Other = station.otherBranch.some(s => seg2.includes(normalize(s)));
+    const seg1Beyond = beyond.some(s => seg1.includes(normalize(s)));
+    const seg2Beyond = beyond.some(s => seg2.includes(normalize(s)));
 
-    // Both endpoints on other branch → clearly not my problem
+    // Both endpoints beyond my terminal → not my problem
+    if (seg1Beyond && seg2Beyond) return 'other';
+    // Both endpoints on other branch → not my problem
     if (seg1Other && seg2Other) return 'other';
+    // One beyond + one other branch → not my problem
+    if ((seg1Beyond && seg2Other) || (seg1Other && seg2Beyond)) return 'other';
     // Both endpoints on my route → clearly my problem
     if (seg1Mine && seg2Mine) return 'mine';
-    // One mine, one other = segment goes BEYOND my route into other branch
+    // One mine + one beyond terminal = segment goes past my destination
     // e.g. "entre Chatelet et Mitry" = north of Chatelet = not my route
-    if ((seg1Mine && seg2Other) || (seg1Other && seg2Mine)) return 'other';
+    if ((seg1Mine && seg2Beyond) || (seg2Mine && seg1Beyond)) return 'other';
+    // One mine + one other branch (south) = disruption passes through my stop
+    // e.g. "entre Denfert et Robinson" = affects Denfert which is on my route
+    if ((seg1Mine && seg2Other) || (seg2Mine && seg1Other)) return 'mine';
     // One known, one unknown
-    if (seg1Other || seg2Other) return 'other';
+    if (seg1Beyond || seg2Beyond) return 'other';
+    if (seg1Other || seg2Other) return 'partial';
     if (seg1Mine || seg2Mine) return 'partial';
   }
 
   // Fallback: check general mentions
+  const mentionsBeyond = beyond.some(s => t.includes(normalize(s)));
   const mentionsOther = station.otherBranch.some(s => t.includes(normalize(s)));
   const mentionsMine = station.myStops.some(s => t.includes(normalize(s)));
 
-  if (mentionsOther && !mentionsMine) return 'other';
-  // Only flag "mine" if no other branch is mentioned (avoids false positives
-  // like "Chatelet" appearing in a Chatelet→CDG perturbation without "entre" pattern)
-  if (mentionsMine && !mentionsOther) return 'mine';
-  if (mentionsMine && mentionsOther) return 'partial';
+  if ((mentionsOther || mentionsBeyond) && !mentionsMine) return 'other';
+  if (mentionsMine && !mentionsOther && !mentionsBeyond) return 'mine';
+  if (mentionsMine && (mentionsOther || mentionsBeyond)) return 'partial';
   return 'unknown';
 }
 
@@ -1409,10 +1428,12 @@ function renderPerturbations(messages) {
 
   container.innerHTML = processed.slice(0, 5).map((item, i) => {
     const { content, severity, route, plans } = item;
+    const isActive = plans.some(p => p.isNow);
 
     plans.forEach(p => allPlans.push({ ...p, severity }));
 
     const sevClass = `sev-${severity}`;
+    const activeClass = isActive ? ' is-active' : '';
     const sevIcon = severity === 'critical' ? '⛔' : severity === 'warn' ? '⚠' : 'ℹ';
     const sevLabel = severity === 'critical' ? 'Perturbation' : severity === 'warn' ? 'Info trafic' : 'Information';
 
@@ -1432,7 +1453,7 @@ function renderPerturbations(messages) {
     }
 
     return `
-      <div class="perturbation-card ${sevClass}" style="animation-delay:${i * 0.08}s">
+      <div class="perturbation-card ${sevClass}${activeClass}" style="animation-delay:${i * 0.08}s">
         <div class="pert-title">${sevIcon} ${sevLabel}${routeTag}</div>
         <div class="pert-content">${content}</div>
         ${planningHtml}
