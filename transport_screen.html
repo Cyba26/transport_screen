@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Laplace → Paris</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;600&display=swap');
+
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --border: #1e1e2e;
+    --accent: #4f8ef7;
+    --text: #e8e8f0;
+    --muted: #5a5a7a;
+    --ok: #22c55e;
+    --warn: #f59e0b;
+    --danger: #ef4444;
+    --rer-b: #4f8ef7;
+    --grid-color: rgba(79,142,247,0.03);
+    --shadow: none;
+  }
+
+  :root.light {
+    --bg: #f0f4ff;
+    --surface: #ffffff;
+    --border: #dde3f0;
+    --accent: #2563eb;
+    --text: #0f172a;
+    --muted: #94a3b8;
+    --ok: #16a34a;
+    --warn: #d97706;
+    --danger: #dc2626;
+    --rer-b: #2563eb;
+    --grid-color: rgba(37,99,235,0.04);
+    --shadow: 0 1px 4px rgba(0,0,0,0.07);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+  }
+
+  /* Subtle grid background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(79,142,247,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(79,142,247,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    padding: 24px 20px;
+    max-width: 480px;
+    margin: 0 auto;
+    width: 100%;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  /* HEADER */
+  .header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+  }
+
+  .station-info h1 {
+    font-size: 28px;
+    font-weight: 600;
+    letter-spacing: -0.5px;
+    line-height: 1.1;
+  }
+
+  .station-info .subtitle {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 4px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .rer-badge {
+    background: var(--rer-b);
+    color: white;
+    font-family: 'DM Mono', monospace;
+    font-weight: 500;
+    font-size: 15px;
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    letter-spacing: 0.05em;
+    flex-shrink: 0;
+    box-shadow: 0 0 20px rgba(79,142,247,0.3);
+  }
+
+  /* WALK TIME BANNER */
+  .walk-banner {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    box-shadow: var(--shadow);
+  }
+
+  .walk-banner .icon {
+    font-size: 18px;
+    opacity: 0.8;
+  }
+
+  .walk-banner .walk-text {
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  .walk-banner .walk-text strong {
+    color: var(--text);
+    font-weight: 600;
+  }
+
+  .walk-banner input[type=range] {
+    margin-left: auto;
+    width: 80px;
+    accent-color: var(--accent);
+    cursor: pointer;
+  }
+
+  .walk-value {
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    color: var(--accent);
+    min-width: 30px;
+    text-align: right;
+  }
+
+  /* TRAINS SECTION */
+  .section-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: -8px;
+  }
+
+  .trains-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .train-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 16px 18px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    transition: border-color 0.2s, transform 0.15s;
+    position: relative;
+    overflow: hidden;
+    animation: slideIn 0.3s ease forwards;
+    opacity: 0;
+    transform: translateY(8px);
+    box-shadow: var(--shadow);
+  }
+
+  .train-card:nth-child(1) { animation-delay: 0.05s; }
+  .train-card:nth-child(2) { animation-delay: 0.12s; }
+  .train-card:nth-child(3) { animation-delay: 0.19s; }
+
+  @keyframes slideIn {
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .train-card.urgent {
+    border-color: rgba(239,68,68,0.3);
+    background: rgba(239,68,68,0.05);
+  }
+
+  .train-card.soon {
+    border-color: rgba(245,158,11,0.25);
+  }
+
+  /* Accent left bar */
+  .train-card::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 20%; bottom: 20%;
+    width: 3px;
+    background: var(--accent);
+    border-radius: 0 2px 2px 0;
+    opacity: 0.6;
+  }
+
+  .train-card.urgent::before { background: var(--danger); opacity: 0.8; }
+  .train-card.soon::before { background: var(--warn); opacity: 0.8; }
+
+  .time-block {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 52px;
+  }
+
+  .time-display {
+    font-family: 'DM Mono', monospace;
+    font-size: 22px;
+    font-weight: 500;
+    color: var(--text);
+    line-height: 1;
+  }
+
+  .time-real {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 3px;
+  }
+
+  .train-info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .destination {
+    font-size: 15px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.2;
+  }
+
+  .mission-code {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 3px;
+    letter-spacing: 0.06em;
+  }
+
+  .countdown {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    flex-shrink: 0;
+  }
+
+  .mins {
+    font-family: 'DM Mono', monospace;
+    font-size: 26px;
+    font-weight: 500;
+    line-height: 1;
+  }
+
+  .mins-label {
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  .mins.ok { color: var(--ok); }
+  .mins.warn { color: var(--warn); }
+  .mins.danger { color: var(--danger); }
+
+  .adjusted-tag {
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    color: var(--muted);
+    margin-top: 2px;
+    text-align: right;
+  }
+
+  /* PERTURBATIONS */
+  .perturbations {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .perturbation-card {
+    background: rgba(245,158,11,0.06);
+    border: 1px solid rgba(245,158,11,0.2);
+    border-radius: 12px;
+    padding: 12px 14px;
+    font-size: 13px;
+    line-height: 1.5;
+    color: #d4a847;
+    animation: slideIn 0.3s ease forwards;
+    opacity: 0;
+  }
+
+  .perturbation-card .pert-title {
+    font-weight: 600;
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .no-perturbation {
+    background: rgba(34,197,94,0.05);
+    border: 1px solid rgba(34,197,94,0.15);
+    border-radius: 12px;
+    padding: 10px 14px;
+    font-size: 12px;
+    color: #4ade80;
+    font-family: 'DM Mono', monospace;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  /* FOOTER */
+  .footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 8px;
+  }
+
+  .last-update {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .pulse-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--ok);
+    animation: pulse 2s ease infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.8); }
+  }
+
+  .refresh-btn {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--muted);
+    font-size: 18px;
+    width: 38px; height: 38px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    transition: color 0.2s, border-color 0.2s, transform 0.15s;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .refresh-btn:active { transform: scale(0.9); }
+  .refresh-btn.spinning { animation: spin 0.6s linear; }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* LOADING / ERROR */
+  .skeleton {
+    background: linear-gradient(90deg, var(--surface) 25%, var(--border) 50%, var(--surface) 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+    border-radius: 16px;
+    height: 78px;
+  }
+
+  @keyframes shimmer { to { background-position: -200% 0; } }
+
+  .error-card {
+    background: rgba(239,68,68,0.06);
+    border: 1px solid rgba(239,68,68,0.2);
+    border-radius: 14px;
+    padding: 16px;
+    text-align: center;
+    font-size: 13px;
+    color: #f87171;
+    line-height: 1.5;
+  }
+
+  .api-setup {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+    text-align: center;
+  }
+
+  .api-setup h2 { font-size: 16px; margin-bottom: 8px; }
+  .api-setup p { font-size: 13px; color: var(--muted); margin-bottom: 16px; line-height: 1.5; }
+
+  .api-input-group { display: flex; gap: 8px; }
+
+  .api-input-group input {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 10px 12px;
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .api-input-group input:focus { border-color: var(--accent); }
+  .api-input-group input::placeholder { color: var(--muted); }
+
+  .btn-primary {
+    background: var(--accent);
+    border: none;
+    border-radius: 10px;
+    color: white;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 10px 16px;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.1s;
+    white-space: nowrap;
+  }
+
+  .btn-primary:active { transform: scale(0.97); opacity: 0.9; }
+
+  .theme-toggle {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--muted);
+    font-size: 16px;
+    width: 34px; height: 34px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    transition: color 0.2s, border-color 0.2s, transform 0.15s;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    box-shadow: var(--shadow);
+  }
+  .theme-toggle:active { transform: scale(0.9); }
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  /* OPTIONAL STATIONS */
+  .optional-stations {
+    display: flex;
+    gap: 8px;
+  }
+
+  .station-pill {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 8px 12px;
+    font-size: 12px;
+    color: var(--muted);
+    cursor: pointer;
+    text-align: center;
+    transition: border-color 0.2s, color 0.2s;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .station-pill.active {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="station-info">
+      <h1 id="station-name">Laplace</h1>
+      <div class="subtitle">→ Paris • <span class="clock" id="clock">--:--</span></div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button class="theme-toggle" id="theme-btn" onclick="toggleTheme()" title="Changer le thème">☀️</button>
+      <div class="rer-badge">B</div>
+    </div>
+  </div>
+
+  <!-- API KEY SETUP (shown if no key) -->
+  <div class="api-setup" id="setup-panel" style="display:none">
+    <h2>🔑 Clé API PRIM</h2>
+    <p>Crée un compte sur <strong>prim.iledefrance-mobilites.fr</strong> et génère une clé API dans ton profil.</p>
+    <div class="api-input-group">
+      <input type="text" id="api-key-input" placeholder="Ta clé API PRIM..." autocomplete="off" />
+      <button class="btn-primary" onclick="saveApiKey()">OK</button>
+    </div>
+  </div>
+
+  <!-- OPTIONAL STATIONS -->
+  <div class="optional-stations" id="station-selector" style="display:none">
+    <div class="station-pill active" data-station="laplace" onclick="switchStation(this)">Laplace</div>
+    <div class="station-pill" data-station="bicetre" onclick="switchStation(this)">Hôp. Bicêtre</div>
+    <div class="station-pill" data-station="barbara" onclick="switchStation(this)">Barbara</div>
+  </div>
+
+  <!-- WALK TIME -->
+  <div class="walk-banner">
+    <span class="icon">🚶</span>
+    <span class="walk-text">Marche à pied : <strong id="walk-label">5 min</strong></span>
+    <input type="range" id="walk-slider" min="1" max="15" value="5" oninput="updateWalk(this.value)" />
+    <span class="walk-value" id="walk-display">5m</span>
+  </div>
+
+  <!-- TRAINS -->
+  <div class="section-label">Prochains passages</div>
+  <div class="trains-list" id="trains-list">
+    <div class="skeleton"></div>
+    <div class="skeleton"></div>
+    <div class="skeleton"></div>
+  </div>
+
+  <!-- PERTURBATIONS -->
+  <div class="section-label">Trafic</div>
+  <div class="perturbations" id="perturbations">
+    <div class="skeleton" style="height:50px"></div>
+  </div>
+
+  <!-- FOOTER -->
+  <div class="footer">
+    <div class="last-update">
+      <div class="pulse-dot" id="pulse-dot"></div>
+      <span id="last-update-text">Chargement...</span>
+    </div>
+    <button class="refresh-btn" id="refresh-btn" onclick="fetchData()" title="Actualiser">↻</button>
+  </div>
+
+</div>
+
+<script>
+// ─── CONFIG ───────────────────────────────────────────────
+const STATIONS = {
+  laplace: {
+    name: "Laplace",
+    stopAreaId: "STIF:StopArea:SP:63244:",  // Laplace RER B
+    lineRef: "STIF:Line::C01743:",           // RER B
+  },
+  bicetre: {
+    name: "Hôp. Bicêtre",
+    stopAreaId: "STIF:StopArea:SP:59914:",
+    lineRef: "STIF:Line::C01743:",
+  },
+  barbara: {
+    name: "Barbara",
+    stopAreaId: "STIF:StopArea:SP:63162:",
+    lineRef: "STIF:Line::C01743:",
+  }
+};
+
+const PARIS_KEYWORDS = ["paris", "denfert", "luxemburg", "saint-michel", "chatelet", "gare du nord", "cdg", "roissy", "mitry"];
+const MAX_TRAINS = 3;
+const REFRESH_INTERVAL = 30000; // 30s
+
+let walkMinutes = 5;
+let currentStation = 'laplace';
+let refreshTimer = null;
+
+// ─── API KEY ──────────────────────────────────────────────
+function getApiKey() {
+  return localStorage.getItem('prim_api_key') || '';
+}
+
+function saveApiKey() {
+  const key = document.getElementById('api-key-input').value.trim();
+  if (!key) return;
+  localStorage.setItem('prim_api_key', key);
+  document.getElementById('setup-panel').style.display = 'none';
+  document.getElementById('station-selector').style.display = 'flex';
+  fetchData();
+}
+
+// ─── CLOCK ────────────────────────────────────────────────
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent =
+    now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ─── WALK TIME ────────────────────────────────────────────
+function updateWalk(val) {
+  walkMinutes = parseInt(val);
+  document.getElementById('walk-label').textContent = `${val} min`;
+  document.getElementById('walk-display').textContent = `${val}m`;
+  localStorage.setItem('walk_minutes', val);
+  renderTrainsFromCache();
+}
+
+function renderTrainsFromCache() {
+  if (window._lastTrains) renderTrains(window._lastTrains);
+}
+
+// ─── STATION SWITCH ───────────────────────────────────────
+function switchStation(el) {
+  document.querySelectorAll('.station-pill').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  currentStation = el.dataset.station;
+  document.getElementById('station-name').textContent = STATIONS[currentStation].name;
+  document.getElementById('trains-list').innerHTML = `
+    <div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>`;
+  document.getElementById('perturbations').innerHTML = `<div class="skeleton" style="height:50px"></div>`;
+  fetchData();
+}
+
+// ─── FETCH ────────────────────────────────────────────────
+async function fetchData() {
+  const apiKey = getApiKey();
+  if (!apiKey) {
+    document.getElementById('setup-panel').style.display = 'block';
+    document.getElementById('trains-list').innerHTML = '';
+    document.getElementById('perturbations').innerHTML = '';
+    return;
+  }
+
+  document.getElementById('station-selector').style.display = 'flex';
+  const btn = document.getElementById('refresh-btn');
+  btn.classList.add('spinning');
+
+  const station = STATIONS[currentStation];
+
+  try {
+    // Fetch next passages
+    const passagesUrl = `https://prim.iledefrance-mobilites.fr/marketplace/stop-monitoring?MonitoringRef=${encodeURIComponent(station.stopAreaId)}&LineRef=${encodeURIComponent(station.lineRef)}`;
+
+    const passagesRes = await fetch(passagesUrl, {
+      headers: { 'apiKey': apiKey }
+    });
+
+    if (!passagesRes.ok) throw new Error(`HTTP ${passagesRes.status}`);
+    const passagesData = await passagesRes.json();
+
+    const visits = passagesData?.Siri?.ServiceDelivery?.StopMonitoringDelivery?.[0]?.MonitoredStopVisit || [];
+    window._lastTrains = visits;
+    renderTrains(visits);
+
+    // Fetch perturbations
+    const pertUrl = `https://prim.iledefrance-mobilites.fr/marketplace/general-message?LineRef=${encodeURIComponent(station.lineRef)}`;
+    const pertRes = await fetch(pertUrl, { headers: { 'apiKey': apiKey } });
+    if (pertRes.ok) {
+      const pertData = await pertRes.json();
+      const messages = pertData?.Siri?.ServiceDelivery?.GeneralMessageDelivery?.[0]?.InfoMessage || [];
+      renderPerturbations(messages);
+    }
+
+    const now = new Date();
+    document.getElementById('last-update-text').textContent =
+      `Mis à jour à ${now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
+    document.getElementById('pulse-dot').style.background = 'var(--ok)';
+
+  } catch (err) {
+    console.error(err);
+    document.getElementById('trains-list').innerHTML = `
+      <div class="error-card">
+        ⚠️ Impossible de récupérer les données.<br>
+        <small>Vérifie ta clé API ou ta connexion.</small><br><br>
+        <small style="opacity:0.6">${err.message}</small>
+      </div>`;
+    document.getElementById('pulse-dot').style.background = 'var(--danger)';
+  }
+
+  btn.classList.remove('spinning');
+}
+
+// ─── RENDER TRAINS ────────────────────────────────────────
+function renderTrains(visits) {
+  const now = new Date();
+  const container = document.getElementById('trains-list');
+
+  // Filter direction Paris (vers le nord), take first MAX_TRAINS
+  const parisTrains = visits
+    .filter(v => {
+      const dest = (v.MonitoredVehicleJourney?.DestinationName?.[0]?.value || '').toLowerCase();
+      return PARIS_KEYWORDS.some(k => dest.includes(k));
+    })
+    .slice(0, MAX_TRAINS);
+
+  // If no direction filter match, take first MAX_TRAINS anyway
+  const trains = parisTrains.length > 0 ? parisTrains : visits.slice(0, MAX_TRAINS);
+
+  if (trains.length === 0) {
+    container.innerHTML = `<div class="error-card">Aucun passage trouvé pour cette station.</div>`;
+    return;
+  }
+
+  container.innerHTML = trains.map((v, i) => {
+    const journey = v.MonitoredVehicleJourney;
+    const call = journey?.MonitoredCall;
+
+    const dest = journey?.DestinationName?.[0]?.value || 'Inconnu';
+    const mission = journey?.JourneyNote?.[0]?.value || '';
+
+    // Expected departure time
+    const rawTime = call?.ExpectedDepartureTime || call?.AimedDepartureTime || call?.ExpectedArrivalTime || call?.AimedArrivalTime;
+    if (!rawTime) return '';
+
+    const depTime = new Date(rawTime);
+    const diffMs = depTime - now;
+    const diffMins = Math.round(diffMs / 60000);
+
+    // Time with walk offset
+    const adjustedMins = diffMins - walkMinutes;
+
+    const timeStr = depTime.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+
+    let urgencyClass = '';
+    let minsClass = 'ok';
+    if (adjustedMins <= 0) { urgencyClass = 'urgent'; minsClass = 'danger'; }
+    else if (adjustedMins <= 3) { urgencyClass = 'soon'; minsClass = 'warn'; }
+
+    const minsDisplay = adjustedMins <= 0 ? '⚡' : `${adjustedMins}`;
+    const minsLabel = adjustedMins <= 0 ? 'parti' : 'min';
+
+    return `
+      <div class="train-card ${urgencyClass}" style="animation-delay:${i * 0.07}s">
+        <div class="time-block">
+          <div class="time-display">${timeStr}</div>
+          <div class="time-real">départ</div>
+        </div>
+        <div class="train-info">
+          <div class="destination">${dest}</div>
+          ${mission ? `<div class="mission-code">${mission}</div>` : ''}
+        </div>
+        <div class="countdown">
+          <div class="mins ${minsClass}">${minsDisplay}</div>
+          <div class="mins-label">${minsLabel}</div>
+          ${walkMinutes > 0 ? `<div class="adjusted-tag">-${walkMinutes}m marche</div>` : ''}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// ─── RENDER PERTURBATIONS ─────────────────────────────────
+function renderPerturbations(messages) {
+  const container = document.getElementById('perturbations');
+
+  const active = messages.filter(m => {
+    const validity = m.ValidUntilTime;
+    if (!validity) return true;
+    return new Date(validity) > new Date();
+  });
+
+  if (active.length === 0) {
+    container.innerHTML = `
+      <div class="no-perturbation">
+        <span>✓</span> Trafic normal sur le RER B
+      </div>`;
+    return;
+  }
+
+  container.innerHTML = active.slice(0, 3).map((m, i) => {
+    const content = m.Content?.find(c => c.value)?.value || 'Perturbation en cours';
+    const title = m.InfoMessageVersion?.[0]?.InfoMessageIdentifier?.value || 'Info trafic';
+    return `
+      <div class="perturbation-card" style="animation-delay:${i * 0.08}s">
+        <div class="pert-title">⚠ ${title}</div>
+        ${content}
+      </div>`;
+  }).join('');
+}
+
+// ─── THEME ────────────────────────────────────────────────
+function toggleTheme() {
+  const isLight = document.documentElement.classList.toggle('light');
+  localStorage.setItem('theme', isLight ? 'light' : 'dark');
+  document.getElementById('theme-btn').textContent = isLight ? '🌙' : '☀️';
+}
+
+function applyTheme() {
+  const saved = localStorage.getItem('theme');
+  // Auto-detect system preference if no saved preference
+  const preferLight = saved ? saved === 'light' : window.matchMedia('(prefers-color-scheme: light)').matches;
+  if (preferLight) {
+    document.documentElement.classList.add('light');
+    document.getElementById('theme-btn').textContent = '🌙';
+  }
+}
+
+// ─── INIT ─────────────────────────────────────────────────
+function init() {
+  applyTheme();
+  // Restore walk time
+  const savedWalk = localStorage.getItem('walk_minutes');
+  if (savedWalk) {
+    walkMinutes = parseInt(savedWalk);
+    document.getElementById('walk-slider').value = walkMinutes;
+    document.getElementById('walk-label').textContent = `${walkMinutes} min`;
+    document.getElementById('walk-display').textContent = `${walkMinutes}m`;
+  }
+
+  // Check API key
+  const apiKey = getApiKey();
+  if (!apiKey) {
+    document.getElementById('setup-panel').style.display = 'block';
+    document.getElementById('trains-list').innerHTML = '';
+    document.getElementById('perturbations').innerHTML = '';
+  } else {
+    document.getElementById('station-selector').style.display = 'flex';
+    fetchData();
+    refreshTimer = setInterval(fetchData, REFRESH_INTERVAL);
+  }
+
+  // Wakelock (keep screen on)
+  if ('wakeLock' in navigator) {
+    navigator.wakeLock.request('screen').catch(() => {});
+  }
+}
+
+init();
+</script>
+</body>
+</html>
