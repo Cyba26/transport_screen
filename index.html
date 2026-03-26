@@ -597,6 +597,19 @@
   }
 
   .btn-primary:active { transform: scale(0.97); opacity: 0.9; }
+
+  .reset-api-btn {
+    background: none;
+    border: none;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    cursor: pointer;
+    padding: 4px 8px;
+    opacity: 0.5;
+    transition: opacity 0.2s;
+  }
+  .reset-api-btn:active { opacity: 1; }
 </style>
 </head>
 <body>
@@ -663,8 +676,11 @@
 
   <!-- FOOTER -->
   <div class="footer">
-    <button class="theme-toggle" id="theme-btn" onclick="toggleTheme()" title="Theme">🌙</button>
-    <button class="refresh-btn" id="refresh-btn" onclick="fetchData()" title="Actualiser">↻</button>
+    <button class="reset-api-btn" onclick="resetApiKey()">reset API</button>
+    <div style="display:flex;gap:8px">
+      <button class="theme-toggle" id="theme-btn" onclick="toggleTheme()" title="Theme">🌙</button>
+      <button class="refresh-btn" id="refresh-btn" onclick="fetchData()" title="Actualiser">↻</button>
+    </div>
   </div>
 
 </div>
@@ -717,6 +733,17 @@ function saveApiKey() {
   document.getElementById('setup-panel').style.display = 'none';
   document.getElementById('station-selector').classList.add('visible');
   fetchData();
+  refreshTimer = setInterval(fetchData, REFRESH_INTERVAL);
+}
+
+function resetApiKey() {
+  if (!confirm('Reinitialiser la cle API ? Tu devras la ressaisir.')) return;
+  localStorage.removeItem('prim_api_key');
+  clearInterval(refreshTimer);
+  document.getElementById('setup-panel').style.display = 'block';
+  document.getElementById('station-selector').classList.remove('visible');
+  document.getElementById('trains-list').innerHTML = '';
+  document.getElementById('perturbations').innerHTML = '';
 }
 
 // ─── CLOCK ────────────────────────────────────────────────
