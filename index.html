@@ -828,15 +828,18 @@
     <div class="skeleton"></div>
   </div>
 
+  <!-- PERTURBATIONS LIVE (sans date) -->
+  <div class="section-label" style="margin-bottom:-8px">Trafic</div>
+  <div class="perturbations" id="perturbations-live"></div>
+
   <!-- PLANNING -->
   <div class="planning-section" id="planning-section" style="display:none">
     <div class="planning-title">Planning perturbations</div>
     <div id="planning-calendar"></div>
   </div>
 
-  <!-- PERTURBATIONS -->
-  <div class="section-label" style="margin-bottom:-8px">Trafic</div>
-  <div class="perturbations" id="perturbations">
+  <!-- PERTURBATIONS PLANIFIEES (avec date) -->
+  <div class="perturbations" id="perturbations-dated">
     <div class="skeleton" style="height:50px"></div>
   </div>
 
@@ -1378,7 +1381,8 @@ function parsePlanningFromText(text) {
 }
 
 function renderPerturbations(messages) {
-  const container = document.getElementById('perturbations');
+  const liveContainer = document.getElementById('perturbations-live');
+  const datedContainer = document.getElementById('perturbations-dated');
 
   console.log('Perturbations brutes:', JSON.stringify(messages.slice(0, 2), null, 2));
 
@@ -1389,10 +1393,11 @@ function renderPerturbations(messages) {
   });
 
   if (active.length === 0) {
-    container.innerHTML = `
+    liveContainer.innerHTML = `
       <div class="no-perturbation">
         <span>✓</span> Trafic normal sur la ligne ${STATIONS[currentStation].lineName}
       </div>`;
+    datedContainer.innerHTML = '';
     document.getElementById('planning-section').style.display = 'none';
     return;
   }
@@ -1442,39 +1447,48 @@ function renderPerturbations(messages) {
     return 0;
   });
 
-  container.innerHTML = processed.slice(0, 5).map((item, i) => {
-    const { content, severity, route, plans } = item;
-    const isActive = plans.some(p => p.isNow);
+  // Split: no date → live container (above planning), with date → dated container (below)
+  const live = processed.filter(p => !p.earliestDate);
+  const dated = processed.filter(p => p.earliestDate);
 
-    plans.forEach(p => allPlans.push({ ...p, severity }));
+  function renderCards(items) {
+    return items.map((item, i) => {
+      const { content, severity, route, plans } = item;
+      const isActive = plans.some(p => p.isNow);
 
-    const sevClass = `sev-${severity}`;
-    const activeClass = isActive ? ' is-active' : '';
-    const sevIcon = severity === 'critical' ? '⛔' : severity === 'warn' ? '⚠' : 'ℹ';
-    const sevLabel = severity === 'critical' ? 'Perturbation' : severity === 'warn' ? 'Info trafic' : 'Information';
+      plans.forEach(p => allPlans.push({ ...p, severity }));
 
-    let routeTag = '';
-    if (route === 'other') routeTag = '<span class="pert-branch-tag other">autre branche</span>';
-    else if (route === 'mine') routeTag = '<span class="pert-branch-tag mine">mon trajet</span>';
-    else if (route === 'partial') routeTag = '<span class="pert-branch-tag other">partiel</span>';
+      const sevClass = `sev-${severity}`;
+      const activeClass = isActive ? ' is-active' : '';
+      const sevIcon = severity === 'critical' ? '⛔' : severity === 'warn' ? '⚠' : 'ℹ';
+      const sevLabel = severity === 'critical' ? 'Perturbation' : severity === 'warn' ? 'Info trafic' : 'Information';
 
-    let planningHtml = '';
-    if (plans.length > 0) {
-      const now = new Date();
-      planningHtml = `<div class="pert-planning">${plans.map(p => {
-        const dotClass = p.isNow ? 'plan-dot now' : 'plan-dot';
-        const status = p.isNow ? ' (en cours)' : (p.from && p.from > now ? ' (a venir)' : '');
-        return `<div class="plan-row"><span class="${dotClass}"></span>${p.label}${status}</div>`;
-      }).join('')}</div>`;
-    }
+      let routeTag = '';
+      if (route === 'other') routeTag = '<span class="pert-branch-tag other">autre branche</span>';
+      else if (route === 'mine') routeTag = '<span class="pert-branch-tag mine">mon trajet</span>';
+      else if (route === 'partial') routeTag = '<span class="pert-branch-tag other">partiel</span>';
 
-    return `
-      <div class="perturbation-card ${sevClass}${activeClass}" style="animation-delay:${i * 0.08}s">
-        <div class="pert-title">${sevIcon} ${sevLabel}${routeTag}</div>
-        <div class="pert-content">${content}</div>
-        ${planningHtml}
-      </div>`;
-  }).join('');
+      let planningHtml = '';
+      if (plans.length > 0) {
+        const now = new Date();
+        planningHtml = `<div class="pert-planning">${plans.map(p => {
+          const dotClass = p.isNow ? 'plan-dot now' : 'plan-dot';
+          const status = p.isNow ? ' (en cours)' : (p.from && p.from > now ? ' (a venir)' : '');
+          return `<div class="plan-row"><span class="${dotClass}"></span>${p.label}${status}</div>`;
+        }).join('')}</div>`;
+      }
+
+      return `
+        <div class="perturbation-card ${sevClass}${activeClass}" style="animation-delay:${i * 0.08}s">
+          <div class="pert-title">${sevIcon} ${sevLabel}${routeTag}</div>
+          <div class="pert-content">${content}</div>
+          ${planningHtml}
+        </div>`;
+    }).join('');
+  }
+
+  liveContainer.innerHTML = renderCards(live);
+  datedContainer.innerHTML = renderCards(dated);
 
   // Render calendar planning
   renderPlanningCalendar(allPlans);
