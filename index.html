@@ -758,7 +758,7 @@ async function fetchData() {
   const station = STATIONS[currentStation];
 
   try {
-    const passagesUrl = `https://prim.iledefrance-mobilites.fr/marketplace/stop-monitoring?MonitoringRef=${encodeURIComponent(station.stopAreaId)}&LineRef=${encodeURIComponent(station.lineRef)}`;
+    const passagesUrl = `https://prim.iledefrance-mobilites.fr/marketplace/stop-monitoring?MonitoringRef=${encodeURIComponent(station.stopAreaId)}&LineRef=${encodeURIComponent(station.lineRef)}&MaximumStopVisits=10`;
 
     const passagesRes = await fetch(passagesUrl, {
       headers: { 'apiKey': apiKey }
