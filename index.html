@@ -532,6 +532,93 @@
     box-shadow: 0 0 6px var(--danger);
   }
 
+  .pert-branch-tag {
+    display: inline-block;
+    font-family: 'DM Mono', monospace;
+    font-size: 9px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    margin-left: 6px;
+    vertical-align: middle;
+  }
+  .pert-branch-tag.other {
+    background: rgba(148,163,184,0.15);
+    color: var(--muted);
+  }
+  .pert-branch-tag.mine {
+    background: rgba(239,68,68,0.12);
+    color: var(--danger);
+  }
+
+  /* PLANNING CALENDAR */
+  .planning-section {
+    margin-top: 4px;
+  }
+
+  .planning-title {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }
+
+  .planning-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .planning-week {
+    display: flex;
+    gap: 2px;
+    align-items: center;
+  }
+
+  .planning-week-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 8px;
+    color: var(--muted);
+    width: 42px;
+    flex-shrink: 0;
+    text-align: right;
+    padding-right: 4px;
+  }
+
+  .planning-day {
+    flex: 1;
+    height: 14px;
+    border-radius: 2px;
+    background: var(--border);
+    position: relative;
+    min-width: 0;
+  }
+
+  .planning-day.has-pert { background: rgba(245,158,11,0.35); }
+  .planning-day.has-critical { background: rgba(239,68,68,0.4); }
+  .planning-day.today {
+    outline: 2px solid var(--accent);
+    outline-offset: -1px;
+    border-radius: 3px;
+  }
+  .planning-day.past { opacity: 0.35; }
+
+  .planning-day-labels {
+    display: flex;
+    gap: 2px;
+    margin-bottom: 2px;
+    padding-left: 46px;
+  }
+
+  .planning-day-labels span {
+    flex: 1;
+    font-family: 'DM Mono', monospace;
+    font-size: 8px;
+    color: var(--muted);
+    text-align: center;
+  }
+
   .no-perturbation {
     background: rgba(34,197,94,0.05);
     border: 1px solid rgba(34,197,94,0.15);
@@ -731,6 +818,12 @@
     <div class="skeleton" style="height:50px"></div>
   </div>
 
+  <!-- PLANNING -->
+  <div class="planning-section" id="planning-section" style="display:none">
+    <div class="planning-title">Planning perturbations</div>
+    <div id="planning-calendar"></div>
+  </div>
+
   <!-- FOOTER -->
   <div class="footer">
     <button class="reset-api-btn" onclick="resetApiKey()">reset API</button>
@@ -752,6 +845,12 @@ const STATIONS = {
     lineName: "B",
     lineImg: "img/RER_B.svg",
     filterDest: dest => !['robinson','massy','palaiseau','orsay','gif','saint-rémy','limours'].some(k => dest.includes(k)),
+    // Arrets sur MON trajet (Laplace → Paris nord)
+    myStops: ['laplace','arcueil','bagneux','gentilly','denfert','luxembourg','saint-michel',
+              'chatelet','gare du nord','aulnay','roissy','cdg','aeroport','mitry'],
+    // Arrets sur d'autres branches (pas mon trajet)
+    otherBranch: ['robinson','sceaux','fontenay','croix de berny','massy','palaiseau',
+                  'orsay','gif','saint-remy','limours','lozere','bures'],
   },
   bicetre: {
     name: "Hôp. Bicêtre",
@@ -759,7 +858,11 @@ const STATIONS = {
     lineRef: "STIF:Line::C01384:",
     lineName: "14",
     lineImg: "img/Ligne_14.svg",
-    filterDest: dest => true, // TODO: affiner quand on voit les destinations en console
+    filterDest: dest => true,
+    myStops: ['bicetre','kremlin','olympiades','chatelet','gare de lyon','bercy',
+              'saint-lazare','pont cardinet','saint-ouen','mairie','clichy',
+              'saint-denis','pleyel'],
+    otherBranch: ['orly','aeroport','morangis','chevilly','thiais','villejuif'],
   },
   barbara: {
     name: "Barbara",
@@ -767,7 +870,11 @@ const STATIONS = {
     lineRef: "STIF:Line::C01374:",
     lineName: "4",
     lineImg: "img/Ligne_4.svg",
-    filterDest: dest => true, // TODO: affiner quand on voit les destinations en console
+    filterDest: dest => true,
+    myStops: ['barbara','verdun','chatillon','montrouge','alesia','denfert',
+              'saint-germain','chatelet','gare du nord','gare de l\'est',
+              'strasbourg','barbes','clignancourt','marcadet','simplon'],
+    otherBranch: ['bagneux','lucie aubrac','mairie de montrouge'],
   }
 };
 
@@ -1066,15 +1173,44 @@ function extractTexts(obj, depth) {
 // Detect severity from InfoChannelRef or keywords
 function detectSeverity(message, text) {
   const channel = (message.InfoChannelRef?.value || message.InfoChannelRef || '').toLowerCase();
-  if (channel === 'perturbation') return 'critical';
-  if (channel === 'information') return 'info';
+  let sev = 'info';
+  if (channel === 'perturbation') sev = 'critical';
+  else if (channel === 'information') sev = 'info';
+  else {
+    const t = text.toLowerCase();
+    if (['interrompu','supprim','aucun train','aucun metro','trafic nul','arret','fermetur','incident grave'].some(k => t.includes(k))) sev = 'critical';
+    else if (['perturb','ralenti','retard','limit','travaux','interruption partielle','forte affluence'].some(k => t.includes(k))) sev = 'warn';
+  }
+  return sev;
+}
 
-  const t = text.toLowerCase();
-  // Critical keywords
-  if (['interrompu','supprim','aucun train','aucun metro','trafic nul','arret','fermetur','incident grave'].some(k => t.includes(k))) return 'critical';
-  // Warning keywords
-  if (['perturb','ralenti','retard','limit','travaux','interruption partielle','forte affluence'].some(k => t.includes(k))) return 'warn';
-  return 'info';
+// Check if perturbation affects MY route or another branch
+function checkRouteRelevance(text) {
+  const station = STATIONS[currentStation];
+  const t = text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+  const normalize = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
+  // Check if text mentions stops on other branches
+  const mentionsOther = station.otherBranch.some(s => t.includes(normalize(s)));
+  const mentionsMine = station.myStops.some(s => t.includes(normalize(s)));
+
+  // If mentions ONLY other branch stops → not my problem
+  if (mentionsOther && !mentionsMine) return 'other';
+  // If mentions my stops → directly concerns me
+  if (mentionsMine) return 'mine';
+  // If mentions specific station names in a "de X a Y" pattern, check if it's my section
+  const deA = t.match(/(?:de|entre)\s+([a-z\s'-]+)\s+(?:a|et|à)\s+([a-z\s'-]+)/);
+  if (deA) {
+    const from = deA[1].trim();
+    const to = deA[2].trim();
+    const fromOther = station.otherBranch.some(s => from.includes(normalize(s)));
+    const toOther = station.otherBranch.some(s => to.includes(normalize(s)));
+    if (fromOther && toOther) return 'other';
+    if (fromOther || toOther) return 'partial';
+  }
+  // No specific stops mentioned → assume it could affect us
+  return 'unknown';
 }
 
 // Parse French date expressions from perturbation text
@@ -1193,20 +1329,36 @@ function renderPerturbations(messages) {
       <div class="no-perturbation">
         <span>✓</span> Trafic normal sur la ligne ${STATIONS[currentStation].lineName}
       </div>`;
+    document.getElementById('planning-section').style.display = 'none';
     return;
   }
 
-  container.innerHTML = active.slice(0, 3).map((m, i) => {
+  // Collect all planning data for the calendar
+  const allPlans = [];
+
+  container.innerHTML = active.slice(0, 5).map((m, i) => {
     const allTexts = extractTexts(m, 0);
     const content = allTexts.sort((a, b) => b.length - a.length)[0] || 'Perturbation en cours';
 
-    const severity = detectSeverity(m, content);
+    let severity = detectSeverity(m, content);
+    const route = checkRouteRelevance(content);
+
+    // Downgrade severity if it's another branch
+    if (route === 'other') severity = 'info';
+
     const sevClass = `sev-${severity}`;
     const sevIcon = severity === 'critical' ? '⛔' : severity === 'warn' ? '⚠' : 'ℹ';
     const sevLabel = severity === 'critical' ? 'Perturbation' : severity === 'warn' ? 'Info trafic' : 'Information';
 
+    // Route tag
+    let routeTag = '';
+    if (route === 'other') routeTag = '<span class="pert-branch-tag other">autre branche</span>';
+    else if (route === 'mine') routeTag = '<span class="pert-branch-tag mine">mon trajet</span>';
+
     // Parse planning from text
     const plans = parsePlanningFromText(content);
+    plans.forEach(p => allPlans.push({ ...p, severity }));
+
     let planningHtml = '';
     if (plans.length > 0) {
       const now = new Date();
@@ -1219,11 +1371,91 @@ function renderPerturbations(messages) {
 
     return `
       <div class="perturbation-card ${sevClass}" style="animation-delay:${i * 0.08}s">
-        <div class="pert-title">${sevIcon} ${sevLabel}</div>
+        <div class="pert-title">${sevIcon} ${sevLabel}${routeTag}</div>
         <div class="pert-content">${content}</div>
         ${planningHtml}
       </div>`;
   }).join('');
+
+  // Render calendar planning
+  renderPlanningCalendar(allPlans);
+}
+
+// ─── PLANNING CALENDAR (3 months, week by week) ──────────
+function renderPlanningCalendar(plans) {
+  const section = document.getElementById('planning-section');
+  const cal = document.getElementById('planning-calendar');
+
+  if (plans.length === 0 || !plans.some(p => p.from || p.to)) {
+    section.style.display = 'none';
+    return;
+  }
+
+  section.style.display = 'block';
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  // Start from monday of current week
+  const startOfWeek = new Date(today);
+  const dow = startOfWeek.getDay() || 7; // 1=Mon...7=Sun
+  startOfWeek.setDate(startOfWeek.getDate() - (dow - 1));
+
+  // 13 weeks = ~3 months
+  const WEEKS = 13;
+  const dayLabels = ['L','M','M','J','V','S','D'];
+
+  // Check if a day falls within any perturbation period
+  function getDayStatus(day) {
+    let maxSev = null;
+    const dayEnd = new Date(day.getTime() + 86400000);
+    for (const p of plans) {
+      const from = p.from || new Date(0);
+      const to = p.to ? new Date(p.to.getTime() + 86400000) : new Date(now.getFullYear() + 1, 0, 1);
+      if (day < to && dayEnd > from) {
+        if (p.severity === 'critical') return 'critical';
+        if (p.severity === 'warn') maxSev = 'warn';
+        else if (!maxSev) maxSev = 'info';
+      }
+    }
+    return maxSev;
+  }
+
+  const monthNames = ['jan','fev','mar','avr','mai','jun','jul','aou','sep','oct','nov','dec'];
+
+  let html = `<div class="planning-day-labels">${dayLabels.map(d => `<span>${d}</span>`).join('')}</div>`;
+  html += '<div class="planning-grid">';
+
+  for (let w = 0; w < WEEKS; w++) {
+    const weekStart = new Date(startOfWeek);
+    weekStart.setDate(weekStart.getDate() + w * 7);
+
+    // Week label = "26 mar"
+    const label = `${weekStart.getDate()} ${monthNames[weekStart.getMonth()]}`;
+
+    html += `<div class="planning-week"><div class="planning-week-label">${label}</div>`;
+
+    for (let d = 0; d < 7; d++) {
+      const day = new Date(weekStart);
+      day.setDate(day.getDate() + d);
+
+      const isToday = day.getTime() === today.getTime();
+      const isPast = day < today;
+      const status = getDayStatus(day);
+
+      let classes = 'planning-day';
+      if (isToday) classes += ' today';
+      if (isPast) classes += ' past';
+      if (status === 'critical') classes += ' has-critical';
+      else if (status === 'warn' || status === 'info') classes += ' has-pert';
+
+      const title = `${day.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })}${status ? ' — perturbation' : ''}`;
+      html += `<div class="${classes}" title="${title}"></div>`;
+    }
+    html += '</div>';
+  }
+
+  html += '</div>';
+  cal.innerHTML = html;
 }
 
 // ─── THEME ────────────────────────────────────────────────
