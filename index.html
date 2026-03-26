@@ -1291,9 +1291,9 @@ function parsePlanningFromText(text) {
   const t = text.replace(/\s+/g, ' ');
   let foundDate = null; // track the main date for "jusqu'a Xh" context
 
-  // "du 5 avril au 12 avril" / "du 5 au 12 avril"
-  const duAu = t.match(/du\s+(\d{1,2})\s+(\w+)\s+au\s+(\d{1,2})\s+(\w+)/i)
-            || t.match(/du\s+(\d{1,2})\s+au\s+(\d{1,2})\s+(\w+)/i);
+  // "du 5 avril au 12 avril" / "du 1er mai au 5 mai" / "du 5 au 12 avril"
+  const duAu = t.match(/du\s+(\d{1,2})(?:er)?\s+(\w+)\s+au\s+(\d{1,2})(?:er)?\s+(\w+)/i)
+            || t.match(/du\s+(\d{1,2})(?:er)?\s+au\s+(\d{1,2})(?:er)?\s+(\w+)/i);
   if (duAu) {
     let from, to;
     if (duAu.length === 5) {
@@ -1310,8 +1310,8 @@ function parsePlanningFromText(text) {
     }
   }
 
-  // "le 5 avril" / "le 5 avril de 5h à 14h"
-  const leDate = t.match(/le\s+(\d{1,2})\s+(\w+)(?:\s+de\s+(\d{1,2})h?\s*[àa]\s*(\d{1,2})h?)?/i);
+  // "le 5 avril" / "le 1er avril" / "le 5 avril de 5h à 14h"
+  const leDate = t.match(/le\s+(\d{1,2})(?:er)?\s+(\w+)(?:\s+de\s+(\d{1,2})h?\s*[àa]\s*(\d{1,2})h?)?/i);
   if (leDate && !duAu) {
     const d = parseDate(leDate[1], leDate[2]);
     if (d) {
@@ -1335,8 +1335,8 @@ function parsePlanningFromText(text) {
     }
   }
 
-  // "à partir du 5 avril"
-  const aPartir = t.match(/[àa]\s*partir\s+du\s+(\d{1,2})\s+(\w+)/i);
+  // "à partir du 5 avril" / "à partir du 1er avril"
+  const aPartir = t.match(/[àa]\s*partir\s+du\s+(\d{1,2})(?:er)?\s+(\w+)/i);
   if (aPartir && !duAu && !leDate) {
     const d = parseDate(aPartir[1], aPartir[2]);
     if (d) {
@@ -1348,7 +1348,7 @@ function parsePlanningFromText(text) {
 
   // "jusqu'au 5 avril" (date, not just time - only if no "le" date found)
   if (!leDate) {
-    const jusquaDate = t.match(/jusqu[''`](?:au|à)\s+(\d{1,2})\s+(\w+)/i);
+    const jusquaDate = t.match(/jusqu[''`](?:au|à)\s+(\d{1,2})(?:er)?\s+(\w+)/i);
     if (jusquaDate) {
       const d = parseDate(jusquaDate[1], jusquaDate[2]);
       if (d) {
