@@ -718,62 +718,7 @@
     line-height: 1.5;
   }
 
-  .api-setup {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    padding: 20px;
-    text-align: center;
-  }
 
-  .api-setup h2 { font-size: 16px; margin-bottom: 8px; }
-  .api-setup p { font-size: 13px; color: var(--muted); margin-bottom: 16px; line-height: 1.5; }
-
-  .api-input-group { display: flex; gap: 8px; }
-
-  .api-input-group input {
-    flex: 1;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 10px 12px;
-    color: var(--text);
-    font-family: 'DM Mono', monospace;
-    font-size: 12px;
-    outline: none;
-    transition: border-color 0.2s;
-  }
-
-  .api-input-group input:focus { border-color: var(--accent); }
-  .api-input-group input::placeholder { color: var(--muted); }
-
-  .btn-primary {
-    background: var(--accent);
-    border: none;
-    border-radius: 10px;
-    color: white;
-    font-size: 13px;
-    font-weight: 600;
-    padding: 10px 16px;
-    cursor: pointer;
-    transition: opacity 0.2s, transform 0.1s;
-    white-space: nowrap;
-  }
-
-  .btn-primary:active { transform: scale(0.97); opacity: 0.9; }
-
-  .reset-api-btn {
-    background: none;
-    border: none;
-    font-family: 'DM Mono', monospace;
-    font-size: 10px;
-    color: var(--muted);
-    cursor: pointer;
-    padding: 4px 8px;
-    opacity: 0.5;
-    transition: opacity 0.2s;
-  }
-  .reset-api-btn:active { opacity: 1; }
 </style>
 </head>
 <body>
@@ -798,16 +743,6 @@
     <div class="station-info">
       <h1 id="station-name">Laplace</h1>
       <div class="subtitle">direction Paris • <span class="clock" id="clock">--:--</span> <span class="walk-tag" id="walk-tag" onclick="toggleWalkPopup()">5m</span></div>
-    </div>
-  </div>
-
-  <!-- API KEY SETUP (shown if no key) -->
-  <div class="api-setup" id="setup-panel" style="display:none">
-    <h2>Cle API PRIM</h2>
-    <p>Cree un compte sur <strong>prim.iledefrance-mobilites.fr</strong> et genere une cle API dans ton profil.</p>
-    <div class="api-input-group">
-      <input type="text" id="api-key-input" placeholder="Ta cle API PRIM..." autocomplete="off" />
-      <button class="btn-primary" onclick="saveApiKey()">OK</button>
     </div>
   </div>
 
@@ -849,7 +784,6 @@
 
   <!-- FOOTER -->
   <div class="footer">
-    <button class="reset-api-btn" onclick="resetApiKey()">reset API</button>
     <div style="display:flex;gap:8px">
       <button class="theme-toggle" id="theme-btn" onclick="toggleTheme()" title="Theme">🌙</button>
       <button class="refresh-btn" id="refresh-btn" onclick="fetchData()" title="Actualiser">↻</button>
@@ -913,31 +847,7 @@ let walkMinutes = 5;
 let currentStation = 'laplace';
 let refreshTimer = null;
 
-// ─── API KEY ──────────────────────────────────────────────
-function getApiKey() {
-  return (localStorage.getItem('prim_api_key') || '').replace(/[\s\u200B\uFEFF]/g, '');
-}
-
-function saveApiKey() {
-  const key = document.getElementById('api-key-input').value.replace(/[\s\u200B\uFEFF]/g, '');
-  if (!key) return;
-  localStorage.setItem('prim_api_key', key);
-  document.getElementById('setup-panel').style.display = 'none';
-  document.getElementById('station-selector').classList.add('visible');
-  fetchData();
-  refreshTimer = setInterval(fetchData, REFRESH_INTERVAL);
-}
-
-function resetApiKey() {
-  if (!confirm('Reinitialiser la cle API ? Tu devras la ressaisir.')) return;
-  localStorage.removeItem('prim_api_key');
-  clearInterval(refreshTimer);
-  document.getElementById('setup-panel').style.display = 'block';
-  document.getElementById('station-selector').classList.remove('visible');
-  document.getElementById('trains-list').innerHTML = '';
-  document.getElementById('perturbations-live').innerHTML = '';
-  document.getElementById('perturbations-dated').innerHTML = '';
-}
+// ─── API PROXY ───────────────────────────────────────────
 
 // ─── CLOCK ────────────────────────────────────────────────
 function updateClock() {
@@ -999,28 +909,19 @@ function switchStation(el) {
 
 // ─── FETCH ────────────────────────────────────────────────
 async function fetchData() {
-  const apiKey = getApiKey();
-  if (!apiKey) {
-    document.getElementById('setup-panel').style.display = 'block';
-    document.getElementById('trains-list').innerHTML = '';
-    document.getElementById('perturbations-live').innerHTML = '';
-    document.getElementById('perturbations-dated').innerHTML = '';
-    return;
-  }
-
   document.getElementById('station-selector').classList.add('visible');
   const btn = document.getElementById('refresh-btn');
   btn.classList.add('spinning');
 
   const station = STATIONS[currentStation];
-  const passagesUrl = `https://prim.iledefrance-mobilites.fr/marketplace/stop-monitoring?MonitoringRef=${station.stopAreaId}&LineRef=${station.lineRef}`;
-  const pertUrl = `https://prim.iledefrance-mobilites.fr/marketplace/general-message?LineRef=${station.lineRef}`;
+  const passagesUrl = `/api/proxy?endpoint=stop-monitoring&MonitoringRef=${station.stopAreaId}&LineRef=${station.lineRef}`;
+  const pertUrl = `/api/proxy?endpoint=general-message&LineRef=${station.lineRef}`;
 
   try {
-    // Fetch passages + perturbations in parallel
+    // Fetch passages + perturbations in parallel via proxy
     const [passagesRes, pertRes] = await Promise.all([
-      fetch(passagesUrl, { headers: { 'apiKey': apiKey } }),
-      fetch(pertUrl, { headers: { 'apiKey': apiKey } })
+      fetch(passagesUrl),
+      fetch(pertUrl)
     ]);
 
     const passagesData = await passagesRes.json();
@@ -1617,17 +1518,9 @@ function init() {
   applyTheme();
   loadWalkForStation();
 
-  const apiKey = getApiKey();
-  if (!apiKey) {
-    document.getElementById('setup-panel').style.display = 'block';
-    document.getElementById('trains-list').innerHTML = '';
-    document.getElementById('perturbations-live').innerHTML = '';
-    document.getElementById('perturbations-dated').innerHTML = '';
-  } else {
-    document.getElementById('station-selector').classList.add('visible');
-    fetchData();
-    refreshTimer = setInterval(fetchData, REFRESH_INTERVAL);
-  }
+  document.getElementById('station-selector').classList.add('visible');
+  fetchData();
+  refreshTimer = setInterval(fetchData, REFRESH_INTERVAL);
 
   if ('wakeLock' in navigator) {
     navigator.wakeLock.request('screen').catch(() => {});
