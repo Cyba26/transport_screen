@@ -801,7 +801,7 @@ const STATIONS = {
     lineRef: "STIF:Line::C01743:",
     lineName: "B",
     lineImg: "img/RER_B.svg",
-    filterDest: dest => !['robinson','massy','palaiseau','orsay','gif','saint-rémy','limours'].some(k => dest.includes(k)),
+    filterDest: dest => !['robinson','massy','palaiseau','orsay','gif','saint-rémy','limours','laplace'].some(k => dest.includes(k)),
     // Arrets sur MON trajet (Laplace → Chatelet max)
     myStops: ['laplace','arcueil','bagneux','gentilly','denfert','port-royal','luxembourg',
               'saint-michel','chatelet','les halles'],
@@ -1046,7 +1046,9 @@ function renderTrains(visits) {
 
   // Normal display: max 1 missed + 2 catchable
   const toShow = [];
-  if (missed.length > 0) toShow.push(missed[missed.length - 1]);
+  // Only show last missed if it was recent (within 5 min)
+  const lastMissed = missed[missed.length - 1];
+  if (lastMissed && lastMissed.adjustedMins >= -5) toShow.push(lastMissed);
   toShow.push(...catchable.slice(0, MAX_TRAINS - toShow.length));
 
   // Add frequency info if available
