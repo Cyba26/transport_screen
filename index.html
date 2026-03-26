@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="fr" class="light">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>Laplace → Paris</title>
+<title>Transport Dashboard</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;600&display=swap');
 
@@ -17,7 +17,6 @@
     --ok: #22c55e;
     --warn: #f59e0b;
     --danger: #ef4444;
-    --rer-b: #4f8ef7;
     --grid-color: rgba(79,142,247,0.03);
     --shadow: none;
   }
@@ -32,7 +31,6 @@
     --ok: #16a34a;
     --warn: #d97706;
     --danger: #dc2626;
-    --rer-b: #2563eb;
     --grid-color: rgba(37,99,235,0.04);
     --shadow: 0 1px 4px rgba(0,0,0,0.07);
   }
@@ -49,14 +47,13 @@
     overflow-x: hidden;
   }
 
-  /* Subtle grid background */
   body::before {
     content: '';
     position: fixed;
     inset: 0;
     background-image:
-      linear-gradient(rgba(79,142,247,0.03) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(79,142,247,0.03) 1px, transparent 1px);
+      linear-gradient(var(--grid-color) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid-color) 1px, transparent 1px);
     background-size: 40px 40px;
     pointer-events: none;
     z-index: 0;
@@ -65,14 +62,52 @@
   .container {
     position: relative;
     z-index: 1;
-    padding: 24px 20px;
+    padding: 16px 20px;
     max-width: 480px;
     margin: 0 auto;
     width: 100%;
     flex: 1;
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: 16px;
+  }
+
+  /* STATION SELECTOR (top of page) */
+  .station-selector {
+    display: none;
+    gap: 8px;
+  }
+
+  .station-selector.visible { display: flex; }
+
+  .station-pill {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 8px 6px;
+    font-size: 11px;
+    color: var(--muted);
+    cursor: pointer;
+    text-align: center;
+    transition: border-color 0.2s, color 0.2s;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+  }
+
+  .station-pill img {
+    height: 18px;
+    width: auto;
+  }
+
+  .station-pill.active {
+    border-color: var(--accent);
+    color: var(--accent);
+    font-weight: 600;
   }
 
   /* HEADER */
@@ -98,21 +133,10 @@
     text-transform: uppercase;
   }
 
-  .rer-badge {
-    background: var(--rer-b);
-    color: white;
-    font-family: 'DM Mono', monospace;
-    font-weight: 500;
-    font-size: 15px;
-    width: 44px;
-    height: 44px;
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    letter-spacing: 0.05em;
+  .line-badge {
+    height: 40px;
+    width: auto;
     flex-shrink: 0;
-    box-shadow: 0 0 20px rgba(79,142,247,0.3);
   }
 
   /* WALK TAG (inline in subtitle) */
@@ -145,11 +169,6 @@
 
   .walk-popup.visible { display: flex; }
 
-  .walk-popup .icon {
-    font-size: 18px;
-    opacity: 0.8;
-  }
-
   .walk-popup .walk-text {
     font-size: 13px;
     color: var(--muted);
@@ -175,16 +194,44 @@
     text-align: right;
   }
 
-  /* TRAINS SECTION */
+  /* SECTION HEADER with update time */
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: -8px;
+  }
+
   .section-label {
     font-family: 'DM Mono', monospace;
     font-size: 10px;
     color: var(--muted);
     letter-spacing: 0.12em;
     text-transform: uppercase;
-    margin-bottom: -8px;
   }
 
+  .last-update {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  .pulse-dot {
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: var(--ok);
+    animation: pulse 2s ease infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.8); }
+  }
+
+  /* TRAINS */
   .trains-list {
     display: flex;
     flex-direction: column;
@@ -225,7 +272,6 @@
     border-color: rgba(245,158,11,0.25);
   }
 
-  /* Accent left bar */
   .train-card::before {
     content: '';
     position: absolute;
@@ -362,29 +408,9 @@
   .footer {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: flex-end;
+    gap: 8px;
     padding-bottom: 8px;
-  }
-
-  .last-update {
-    font-family: 'DM Mono', monospace;
-    font-size: 10px;
-    color: var(--muted);
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-
-  .pulse-dot {
-    width: 6px; height: 6px;
-    border-radius: 50%;
-    background: var(--ok);
-    animation: pulse 2s ease infinite;
-  }
-
-  @keyframes pulse {
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50% { opacity: 0.5; transform: scale(0.8); }
   }
 
   .refresh-btn {
@@ -405,6 +431,22 @@
   .refresh-btn.spinning { animation: spin 0.6s linear; }
 
   @keyframes spin { to { transform: rotate(360deg); } }
+
+  .theme-toggle {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--muted);
+    font-size: 16px;
+    width: 38px; height: 38px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    transition: color 0.2s, border-color 0.2s, transform 0.15s;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    box-shadow: var(--shadow);
+  }
+  .theme-toggle:active { transform: scale(0.9); }
 
   /* LOADING / ERROR */
   .skeleton {
@@ -471,92 +513,58 @@
   }
 
   .btn-primary:active { transform: scale(0.97); opacity: 0.9; }
-
-  .theme-toggle {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    color: var(--muted);
-    font-size: 16px;
-    width: 34px; height: 34px;
-    display: flex; align-items: center; justify-content: center;
-    cursor: pointer;
-    transition: color 0.2s, border-color 0.2s, transform 0.15s;
-    user-select: none;
-    -webkit-tap-highlight-color: transparent;
-    box-shadow: var(--shadow);
-  }
-  .theme-toggle:active { transform: scale(0.9); }
-
-  /* OPTIONAL STATIONS */
-  .optional-stations {
-    display: flex;
-    gap: 8px;
-  }
-
-  .station-pill {
-    flex: 1;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    padding: 8px 12px;
-    font-size: 12px;
-    color: var(--muted);
-    cursor: pointer;
-    text-align: center;
-    transition: border-color 0.2s, color 0.2s;
-    user-select: none;
-    -webkit-tap-highlight-color: transparent;
-  }
-
-  .station-pill.active {
-    border-color: var(--accent);
-    color: var(--accent);
-  }
 </style>
 </head>
 <body>
 <div class="container">
 
+  <!-- STATION SELECTOR (top) -->
+  <div class="station-selector" id="station-selector">
+    <div class="station-pill active" data-station="laplace" onclick="switchStation(this)">
+      <img src="img/RER_B.svg" alt="RER B"> Laplace
+    </div>
+    <div class="station-pill" data-station="bicetre" onclick="switchStation(this)">
+      <img src="img/Ligne_14.svg" alt="M14"> Bicêtre
+    </div>
+    <div class="station-pill" data-station="barbara" onclick="switchStation(this)">
+      <img src="img/Ligne_4.svg" alt="M4"> Barbara
+    </div>
+  </div>
+
   <!-- HEADER -->
   <div class="header">
     <div class="station-info">
       <h1 id="station-name">Laplace</h1>
-      <div class="subtitle">→ Paris • <span class="clock" id="clock">--:--</span> <span class="walk-tag" id="walk-tag" onclick="toggleWalkPopup()" title="Temps de marche">🚶 5m</span></div>
+      <div class="subtitle">direction Paris • <span class="clock" id="clock">--:--</span> <span class="walk-tag" id="walk-tag" onclick="toggleWalkPopup()">5m</span></div>
     </div>
-    <div style="display:flex;gap:8px;align-items:center">
-      <button class="theme-toggle" id="theme-btn" onclick="toggleTheme()" title="Changer le thème">☀️</button>
-      <div class="rer-badge">B</div>
-    </div>
+    <img class="line-badge" id="line-badge" src="img/RER_B.svg" alt="RER B">
   </div>
 
   <!-- API KEY SETUP (shown if no key) -->
   <div class="api-setup" id="setup-panel" style="display:none">
-    <h2>🔑 Clé API PRIM</h2>
-    <p>Crée un compte sur <strong>prim.iledefrance-mobilites.fr</strong> et génère une clé API dans ton profil.</p>
+    <h2>Cle API PRIM</h2>
+    <p>Cree un compte sur <strong>prim.iledefrance-mobilites.fr</strong> et genere une cle API dans ton profil.</p>
     <div class="api-input-group">
-      <input type="text" id="api-key-input" placeholder="Ta clé API PRIM..." autocomplete="off" />
+      <input type="text" id="api-key-input" placeholder="Ta cle API PRIM..." autocomplete="off" />
       <button class="btn-primary" onclick="saveApiKey()">OK</button>
     </div>
   </div>
 
-  <!-- OPTIONAL STATIONS -->
-  <div class="optional-stations" id="station-selector" style="display:none">
-    <div class="station-pill active" data-station="laplace" onclick="switchStation(this)">Laplace</div>
-    <div class="station-pill" data-station="bicetre" onclick="switchStation(this)">Hôp. Bicêtre</div>
-    <div class="station-pill" data-station="barbara" onclick="switchStation(this)">Barbara</div>
-  </div>
-
   <!-- WALK TIME POPUP (hidden by default) -->
   <div class="walk-popup" id="walk-popup">
-    <span class="icon">🚶</span>
     <span class="walk-text">Marche : <strong id="walk-label">5 min</strong></span>
-    <input type="range" id="walk-slider" min="1" max="15" value="5" oninput="updateWalk(this.value)" />
+    <input type="range" id="walk-slider" min="1" max="20" value="5" oninput="updateWalk(this.value)" />
     <span class="walk-value" id="walk-display">5m</span>
   </div>
 
   <!-- TRAINS -->
-  <div class="section-label">Prochains passages</div>
+  <div class="section-header">
+    <div class="section-label">Prochains passages</div>
+    <div class="last-update">
+      <div class="pulse-dot" id="pulse-dot"></div>
+      <span id="last-update-text">chargement...</span>
+    </div>
+  </div>
   <div class="trains-list" id="trains-list">
     <div class="skeleton"></div>
     <div class="skeleton"></div>
@@ -564,17 +572,14 @@
   </div>
 
   <!-- PERTURBATIONS -->
-  <div class="section-label">Trafic</div>
+  <div class="section-label" style="margin-bottom:-8px">Trafic</div>
   <div class="perturbations" id="perturbations">
     <div class="skeleton" style="height:50px"></div>
   </div>
 
   <!-- FOOTER -->
   <div class="footer">
-    <div class="last-update">
-      <div class="pulse-dot" id="pulse-dot"></div>
-      <span id="last-update-text">Chargement...</span>
-    </div>
+    <button class="theme-toggle" id="theme-btn" onclick="toggleTheme()" title="Theme">🌙</button>
     <button class="refresh-btn" id="refresh-btn" onclick="fetchData()" title="Actualiser">↻</button>
   </div>
 
@@ -586,35 +591,31 @@ const STATIONS = {
   laplace: {
     name: "Laplace",
     stopAreaId: "STIF:StopArea:SP:43607:",
-    lineRef: "STIF:Line::C01743:",  // RER B
-    lineColor: "#4f8ef7",
+    lineRef: "STIF:Line::C01743:",
     lineName: "B",
-    // Exclude southbound (Robinson, Massy...)
+    lineImg: "img/RER_B.svg",
     filterDest: dest => !['robinson','massy','palaiseau','orsay','gif','saint-rémy','limours'].some(k => dest.includes(k)),
   },
   bicetre: {
     name: "Hôp. Bicêtre",
-    stopAreaId: "STIF:StopPoint:Q:490849:",  // Métro 14
-    lineRef: "STIF:Line::C01384:",           // Métro 14
-    lineColor: "#62259d",
+    stopAreaId: "STIF:StopPoint:Q:490849:",
+    lineRef: "STIF:Line::C01384:",
     lineName: "14",
-    // Keep only northbound (Saint-Lazare, Mairie de St-Ouen, CDG)
+    lineImg: "img/Ligne_14.svg",
     filterDest: dest => ['saint-lazare','mairie','saint-ouen','orly','roissy','cdg','aéroport'].some(k => dest.includes(k)) || !['olympiades','chevilly','morangis'].some(k => dest.includes(k)),
   },
   barbara: {
     name: "Barbara",
-    stopAreaId: "STIF:StopPoint:Q:483313:",  // Métro 4
-    lineRef: "STIF:Line::C01374:",           // Métro 4
-    lineColor: "#a0006e",
+    stopAreaId: "STIF:StopPoint:Q:483313:",
+    lineRef: "STIF:Line::C01374:",
     lineName: "4",
-    // Keep only northbound (Clignancourt, Gare du Nord)
-    filterDest: dest => ['clignancourt','gare du nord','saint-denis','montrouge'].some(k => dest.includes(k)) || !['montrouge','bagneux'].some(k => dest.includes(k)),
+    lineImg: "img/Ligne_4.svg",
+    filterDest: dest => ['clignancourt','gare du nord','saint-denis'].some(k => dest.includes(k)) || !['montrouge','bagneux'].some(k => dest.includes(k)),
   }
 };
 
-const PARIS_KEYWORDS = ["paris", "denfert", "luxemburg", "saint-michel", "chatelet", "gare du nord", "cdg", "roissy", "mitry"];
 const MAX_TRAINS = 3;
-const REFRESH_INTERVAL = 10000; // 10s
+const REFRESH_INTERVAL = 20000; // 20s
 
 let walkMinutes = 5;
 let currentStation = 'laplace';
@@ -630,7 +631,7 @@ function saveApiKey() {
   if (!key) return;
   localStorage.setItem('prim_api_key', key);
   document.getElementById('setup-panel').style.display = 'none';
-  document.getElementById('station-selector').style.display = 'flex';
+  document.getElementById('station-selector').classList.add('visible');
   fetchData();
 }
 
@@ -652,7 +653,7 @@ function updateWalk(val) {
   walkMinutes = parseInt(val);
   document.getElementById('walk-label').textContent = `${val} min`;
   document.getElementById('walk-display').textContent = `${val}m`;
-  document.getElementById('walk-tag').textContent = `🚶 ${val}m`;
+  document.getElementById('walk-tag').textContent = `${val}m`;
   localStorage.setItem(getWalkKey(), val);
   renderTrainsFromCache();
 }
@@ -663,7 +664,7 @@ function loadWalkForStation() {
   document.getElementById('walk-slider').value = walkMinutes;
   document.getElementById('walk-label').textContent = `${walkMinutes} min`;
   document.getElementById('walk-display').textContent = `${walkMinutes}m`;
-  document.getElementById('walk-tag').textContent = `🚶 ${walkMinutes}m`;
+  document.getElementById('walk-tag').textContent = `${walkMinutes}m`;
 }
 
 function toggleWalkPopup() {
@@ -681,11 +682,8 @@ function switchStation(el) {
   currentStation = el.dataset.station;
   const st = STATIONS[currentStation];
   document.getElementById('station-name').textContent = st.name;
-  // Update badge color and line name
-  const badge = document.querySelector('.rer-badge');
-  badge.textContent = st.lineName;
-  badge.style.background = st.lineColor;
-  badge.style.boxShadow = `0 0 20px ${st.lineColor}66`;
+  document.getElementById('line-badge').src = st.lineImg;
+  document.getElementById('line-badge').alt = st.lineName;
   loadWalkForStation();
   document.getElementById('walk-popup').classList.remove('visible');
   document.getElementById('trains-list').innerHTML = `
@@ -704,14 +702,13 @@ async function fetchData() {
     return;
   }
 
-  document.getElementById('station-selector').style.display = 'flex';
+  document.getElementById('station-selector').classList.add('visible');
   const btn = document.getElementById('refresh-btn');
   btn.classList.add('spinning');
 
   const station = STATIONS[currentStation];
 
   try {
-    // Fetch next passages
     const passagesUrl = `https://prim.iledefrance-mobilites.fr/marketplace/stop-monitoring?MonitoringRef=${encodeURIComponent(station.stopAreaId)}&LineRef=${encodeURIComponent(station.lineRef)}`;
 
     const passagesRes = await fetch(passagesUrl, {
@@ -725,7 +722,6 @@ async function fetchData() {
     window._lastTrains = visits;
     renderTrains(visits);
 
-    // Fetch perturbations
     const pertUrl = `https://prim.iledefrance-mobilites.fr/marketplace/general-message?LineRef=${encodeURIComponent(station.lineRef)}`;
     const pertRes = await fetch(pertUrl, { headers: { 'apiKey': apiKey } });
     if (pertRes.ok) {
@@ -736,15 +732,15 @@ async function fetchData() {
 
     const now = new Date();
     document.getElementById('last-update-text').textContent =
-      `Mis à jour à ${now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
+      now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     document.getElementById('pulse-dot').style.background = 'var(--ok)';
 
   } catch (err) {
     console.error(err);
     document.getElementById('trains-list').innerHTML = `
       <div class="error-card">
-        ⚠️ Impossible de récupérer les données.<br>
-        <small>Vérifie ta clé API ou ta connexion.</small><br><br>
+        Impossible de recuperer les donnees.<br>
+        <small>Verifie ta cle API ou ta connexion.</small><br><br>
         <small style="opacity:0.6">${err.message}</small>
       </div>`;
     document.getElementById('pulse-dot').style.background = 'var(--danger)';
@@ -759,54 +755,62 @@ function renderTrains(visits) {
   const container = document.getElementById('trains-list');
 
   const station = STATIONS[currentStation];
-  const filtered = visits.filter(v => {
+
+  // Filter by direction
+  let dirFiltered = visits.filter(v => {
     const dest = (v.MonitoredVehicleJourney?.DestinationName?.[0]?.value || '').toLowerCase();
     return station.filterDest(dest);
-  }).slice(0, MAX_TRAINS);
+  });
 
-  console.log('Destinations reçues:', visits.slice(0, 6).map(v =>
+  console.log('Destinations recues:', visits.slice(0, 6).map(v =>
     v.MonitoredVehicleJourney?.DestinationName?.[0]?.value
   ));
-  const trains = filtered.length > 0 ? filtered : visits.slice(0, MAX_TRAINS);
 
-  if (trains.length === 0) {
-    container.innerHTML = `<div class="error-card">Aucun passage trouvé pour cette station.</div>`;
+  const candidates = dirFiltered.length > 0 ? dirFiltered : visits;
+
+  // Compute adjusted minutes for each train
+  const withTiming = candidates.map(v => {
+    const call = v.MonitoredVehicleJourney?.MonitoredCall;
+    const rawTime = call?.ExpectedDepartureTime || call?.AimedDepartureTime || call?.ExpectedArrivalTime || call?.AimedArrivalTime;
+    if (!rawTime) return null;
+    const depTime = new Date(rawTime);
+    const diffMins = Math.round((depTime - now) / 60000);
+    const adjustedMins = diffMins - walkMinutes;
+    return { visit: v, depTime, diffMins, adjustedMins };
+  }).filter(Boolean);
+
+  // Show at most 1 missed train (the most recent one) + next 2 catchable
+  const missed = withTiming.filter(t => t.adjustedMins <= 0);
+  const catchable = withTiming.filter(t => t.adjustedMins > 0);
+
+  const toShow = [];
+  if (missed.length > 0) toShow.push(missed[missed.length - 1]); // last missed = closest
+  toShow.push(...catchable.slice(0, MAX_TRAINS - toShow.length));
+
+  if (toShow.length === 0) {
+    container.innerHTML = `<div class="error-card">Aucun passage trouve pour cette station.</div>`;
     return;
   }
 
-  container.innerHTML = trains.map((v, i) => {
-    const journey = v.MonitoredVehicleJourney;
-    const call = journey?.MonitoredCall;
-
+  container.innerHTML = toShow.map((t, i) => {
+    const journey = t.visit.MonitoredVehicleJourney;
     const dest = journey?.DestinationName?.[0]?.value || 'Inconnu';
     const mission = journey?.JourneyNote?.[0]?.value || '';
-
-    // Expected departure time
-    const rawTime = call?.ExpectedDepartureTime || call?.AimedDepartureTime || call?.ExpectedArrivalTime || call?.AimedArrivalTime;
-    if (!rawTime) return '';
-
-    const depTime = new Date(rawTime);
-    const diffMs = depTime - now;
-    const diffMins = Math.round(diffMs / 60000);
-
-    // Time with walk offset
-    const adjustedMins = diffMins - walkMinutes;
-
-    const timeStr = depTime.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    const timeStr = t.depTime.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 
     let urgencyClass = '';
     let minsClass = 'ok';
-    if (adjustedMins <= 0) { urgencyClass = 'urgent'; minsClass = 'danger'; }
-    else if (adjustedMins <= 3) { urgencyClass = 'soon'; minsClass = 'warn'; }
+    if (t.adjustedMins <= 0) { urgencyClass = 'urgent'; minsClass = 'danger'; }
+    else if (t.adjustedMins <= 3) { urgencyClass = 'soon'; minsClass = 'warn'; }
 
-    const minsDisplay = adjustedMins <= 0 ? '⚡' : `${adjustedMins}`;
-    const minsLabel = adjustedMins <= 0 ? 'parti' : 'min';
+    const minsDisplay = t.adjustedMins <= 0 ? 'rate' : `${t.adjustedMins}`;
+    const minsLabel = t.adjustedMins <= 0 ? '' : 'min';
 
     return `
       <div class="train-card ${urgencyClass}" style="animation-delay:${i * 0.07}s">
         <div class="time-block">
           <div class="time-display">${timeStr}</div>
-          <div class="time-real">départ</div>
+          <div class="time-real">depart</div>
         </div>
         <div class="train-info">
           <div class="destination">${dest}</div>
@@ -846,7 +850,7 @@ function renderPerturbations(messages) {
     const title = m.InfoMessageVersion?.[0]?.InfoMessageIdentifier?.value || 'Info trafic';
     return `
       <div class="perturbation-card" style="animation-delay:${i * 0.08}s">
-        <div class="pert-title">⚠ ${title}</div>
+        <div class="pert-title">${title}</div>
         ${content}
       </div>`;
   }).join('');
@@ -861,11 +865,14 @@ function toggleTheme() {
 
 function applyTheme() {
   const saved = localStorage.getItem('theme');
-  // Auto-detect system preference if no saved preference
-  const preferLight = saved ? saved === 'light' : window.matchMedia('(prefers-color-scheme: light)').matches;
+  // Default to light
+  const preferLight = saved ? saved === 'light' : true;
   if (preferLight) {
     document.documentElement.classList.add('light');
     document.getElementById('theme-btn').textContent = '🌙';
+  } else {
+    document.documentElement.classList.remove('light');
+    document.getElementById('theme-btn').textContent = '☀️';
   }
 }
 
@@ -874,19 +881,17 @@ function init() {
   applyTheme();
   loadWalkForStation();
 
-  // Check API key
   const apiKey = getApiKey();
   if (!apiKey) {
     document.getElementById('setup-panel').style.display = 'block';
     document.getElementById('trains-list').innerHTML = '';
     document.getElementById('perturbations').innerHTML = '';
   } else {
-    document.getElementById('station-selector').style.display = 'flex';
+    document.getElementById('station-selector').classList.add('visible');
     fetchData();
     refreshTimer = setInterval(fetchData, REFRESH_INTERVAL);
   }
 
-  // Wakelock (keep screen on)
   if ('wakeLock' in navigator) {
     navigator.wakeLock.request('screen').catch(() => {});
   }
