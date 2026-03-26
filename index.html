@@ -1150,8 +1150,8 @@ function renderTrains(visits) {
     if (t.adjustedMins === 0) {
       urgencyClass = 'soon';
       minsClass = 'warn';
-      minsDisplay = 'NOW';
-      minsLabel = '⚡️';
+      minsDisplay = 'NOW ⚡️';
+      minsLabel = '';
       leaveLabel = `partir à ${leaveStr}`;
     } else if (t.adjustedMins < 0) {
       urgencyClass = 'urgent';
