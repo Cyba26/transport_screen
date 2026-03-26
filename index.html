@@ -182,29 +182,50 @@
   .walk-popup input[type=range] {
     flex: 1;
     min-width: 0;
-    height: 36px;
+    height: 40px;
     accent-color: var(--accent);
     cursor: pointer;
     -webkit-appearance: none;
     appearance: none;
-    background: transparent;
+    background: none;
+    padding: 0;
+    margin: 0;
   }
 
   .walk-popup input[type=range]::-webkit-slider-runnable-track {
-    height: 6px;
-    border-radius: 3px;
+    height: 8px;
+    border-radius: 4px;
     background: var(--border);
+    border: none;
   }
 
   .walk-popup input[type=range]::-webkit-slider-thumb {
     -webkit-appearance: none;
+    appearance: none;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: var(--accent);
+    margin-top: -11px;
+    border: 2px solid var(--surface);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+  }
+
+  /* Firefox */
+  .walk-popup input[type=range]::-moz-range-track {
+    height: 8px;
+    border-radius: 4px;
+    background: var(--border);
+    border: none;
+  }
+
+  .walk-popup input[type=range]::-moz-range-thumb {
     width: 28px;
     height: 28px;
     border-radius: 50%;
     background: var(--accent);
-    margin-top: -11px;
-    border: none;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    border: 2px solid var(--surface);
+    box-shadow: 0 2px 8px rgba(0,0,0,0.25);
   }
 
   .walk-value {
@@ -630,7 +651,7 @@ const STATIONS = {
     lineRef: "STIF:Line::C01384:",
     lineName: "14",
     lineImg: "img/Ligne_14.svg",
-    filterDest: dest => !['olympiades','chevilly','morangis','villejuif','kremlin','thiais'].some(k => dest.includes(k)),
+    filterDest: dest => true, // TODO: affiner quand on voit les destinations en console
   },
   barbara: {
     name: "Barbara",
@@ -638,7 +659,7 @@ const STATIONS = {
     lineRef: "STIF:Line::C01374:",
     lineName: "4",
     lineImg: "img/Ligne_4.svg",
-    filterDest: dest => !['montrouge','bagneux','mairie de montrouge'].some(k => dest.includes(k)),
+    filterDest: dest => true, // TODO: affiner quand on voit les destinations en console
   }
 };
 
@@ -852,7 +873,7 @@ function renderTrains(visits) {
         <div class="countdown">
           <div class="mins ${minsClass}">${minsDisplay}</div>
           <div class="mins-label">${minsLabel}</div>
-          <div class="leave-time${lateClass}">${t.adjustedMins <= 0 ? 'trop tard' : `partir ${leaveStr}`}</div>
+          <div class="leave-time${lateClass}">${t.adjustedMins <= 0 ? `parti ${leaveStr}` : `partir ${leaveStr}`}</div>
         </div>
       </div>`;
   }).join('');
@@ -879,51 +900,46 @@ function renderPerturbations(messages) {
   }
 
   container.innerHTML = active.slice(0, 3).map((m, i) => {
-    // Try all known SIRI message structures
-    let content = 'Perturbation en cours';
-    // Structure 1: Content array or object
-    if (Array.isArray(m.Content)) {
-      const found = m.Content.find(c => c.value);
-      if (found) content = found.value;
-    } else if (m.Content?.value) {
-      content = m.Content.value;
-    }
-    // Structure 2: Message[].MessageText (SIRI GeneralMessage)
-    if (content === 'Perturbation en cours' && m.Message) {
-      const msgs = Array.isArray(m.Message) ? m.Message : [m.Message];
-      for (const msg of msgs) {
-        const texts = msg.MessageText || msg.Content?.MessageText;
-        if (texts) {
-          const arr = Array.isArray(texts) ? texts : [texts];
-          const txt = arr.find(t => t.value);
-          if (txt) { content = txt.value; break; }
-        }
-      }
-    }
-    // Structure 3: InfoMessageVersion content
-    if (content === 'Perturbation en cours' && m.InfoMessageVersion) {
-      const versions = Array.isArray(m.InfoMessageVersion) ? m.InfoMessageVersion : [m.InfoMessageVersion];
-      for (const v of versions) {
-        const msgs = v.Message || [];
-        const arr = Array.isArray(msgs) ? msgs : [msgs];
-        for (const msg of arr) {
-          const texts = msg.MessageText;
-          if (texts) {
-            const txArr = Array.isArray(texts) ? texts : [texts];
-            const txt = txArr.find(t => t.value);
-            if (txt) { content = txt.value; break; }
+    // Deep extract: recursively find all long text values in the message object
+    function extractTexts(obj, depth) {
+      if (!obj || depth > 8) return [];
+      if (typeof obj === 'string') return obj.length > 20 ? [obj] : [];
+      if (Array.isArray(obj)) return obj.flatMap(item => extractTexts(item, depth + 1));
+      if (typeof obj === 'object') {
+        const results = [];
+        // Prioritize known text fields
+        for (const key of ['value', 'MessageText', 'Content', 'Message', 'InfoMessageVersion']) {
+          if (obj[key] !== undefined) {
+            results.push(...extractTexts(obj[key], depth + 1));
           }
         }
-        if (content !== 'Perturbation en cours') break;
+        if (results.length === 0) {
+          for (const val of Object.values(obj)) {
+            results.push(...extractTexts(val, depth + 1));
+          }
+        }
+        return results;
       }
+      return [];
     }
 
-    const title = m.InfoMessageIdentifier?.value || m.InfoMessageVersion?.[0]?.InfoMessageIdentifier?.value || 'Info trafic';
+    const allTexts = extractTexts(m, 0);
+    // Pick the longest text as the most informative
+    const content = allTexts.sort((a, b) => b.length - a.length)[0] || 'Perturbation en cours';
+
+    // Clean up title - use short text or fallback
+    let title = 'Info trafic';
+    const rawTitle = m.InfoMessageIdentifier?.value || '';
+    if (rawTitle.length > 40) {
+      title = 'Info trafic';
+    } else if (rawTitle) {
+      title = rawTitle;
+    }
 
     return `
       <div class="perturbation-card" style="animation-delay:${i * 0.08}s">
         <div class="pert-title">${title}</div>
-        ${content}
+        <div>${content}</div>
       </div>`;
   }).join('');
 }
