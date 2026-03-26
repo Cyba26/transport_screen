@@ -1150,7 +1150,7 @@ function renderTrains(visits) {
     if (t.adjustedMins === 0) {
       urgencyClass = 'soon';
       minsClass = 'warn';
-      minsDisplay = 'NOW ⚡️';
+      minsDisplay = 'NOW⚡️';
       minsLabel = '';
       leaveLabel = `partir à ${leaveStr}`;
     } else if (t.adjustedMins < 0) {
@@ -1228,7 +1228,7 @@ function checkRouteRelevance(text) {
   const beyond = station.beyondTerminal || [];
 
   // First check "entre X et Y" / "de X a Y" patterns — most precise
-  const deA = t.match(/(?:entre|de)\s+([a-z\s'''.,-]+?)\s+(?:et|a|à)\s+([a-z\s'''.,-]+?)(?:\s+en\b|\s+du\b|\s+le\b|\s+pour\b|\s*[.,;]|$)/);
+  const deA = t.match(/(?:entre|de)\s+([a-z\s'''.,•·\-]+?)\s+(?:et|a|à)\s+([a-z\s'''.,•·\-]+?)(?:\s+en\b|\s+du\b|\s+le\b|\s+pour\b|\s*[.,;]|$)/);
   if (deA) {
     const seg1 = deA[1].trim();
     const seg2 = deA[2].trim();
