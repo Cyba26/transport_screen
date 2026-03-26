@@ -571,18 +571,30 @@
 const STATIONS = {
   laplace: {
     name: "Laplace",
-    stopAreaId: "STIF:StopArea:SP:63244:",  // Laplace RER B
-    lineRef: "STIF:Line::C01743:",           // RER B
+    stopAreaId: "STIF:StopArea:SP:43607:",
+    lineRef: "STIF:Line::C01743:",  // RER B
+    lineColor: "#4f8ef7",
+    lineName: "B",
+    // Exclude southbound (Robinson, Massy...)
+    filterDest: dest => !['robinson','massy','palaiseau','orsay','gif','saint-rémy','limours'].some(k => dest.includes(k)),
   },
   bicetre: {
     name: "Hôp. Bicêtre",
-    stopAreaId: "STIF:StopArea:SP:59914:",
-    lineRef: "STIF:Line::C01743:",
+    stopAreaId: "STIF:StopPoint:Q:490849:",  // Métro 14
+    lineRef: "STIF:Line::C01384:",           // Métro 14
+    lineColor: "#62259d",
+    lineName: "14",
+    // Keep only northbound (Saint-Lazare, Mairie de St-Ouen, CDG)
+    filterDest: dest => ['saint-lazare','mairie','saint-ouen','orly','roissy','cdg','aéroport'].some(k => dest.includes(k)) || !['olympiades','chevilly','morangis'].some(k => dest.includes(k)),
   },
   barbara: {
     name: "Barbara",
-    stopAreaId: "STIF:StopArea:SP:63162:",
-    lineRef: "STIF:Line::C01743:",
+    stopAreaId: "STIF:StopPoint:Q:483313:",  // Métro 4
+    lineRef: "STIF:Line::C01374:",           // Métro 4
+    lineColor: "#a0006e",
+    lineName: "4",
+    // Keep only northbound (Clignancourt, Gare du Nord)
+    filterDest: dest => ['clignancourt','gare du nord','saint-denis','montrouge'].some(k => dest.includes(k)) || !['montrouge','bagneux'].some(k => dest.includes(k)),
   }
 };
 
@@ -635,7 +647,13 @@ function switchStation(el) {
   document.querySelectorAll('.station-pill').forEach(p => p.classList.remove('active'));
   el.classList.add('active');
   currentStation = el.dataset.station;
-  document.getElementById('station-name').textContent = STATIONS[currentStation].name;
+  const st = STATIONS[currentStation];
+  document.getElementById('station-name').textContent = st.name;
+  // Update badge color and line name
+  const badge = document.querySelector('.rer-badge');
+  badge.textContent = st.lineName;
+  badge.style.background = st.lineColor;
+  badge.style.boxShadow = `0 0 20px ${st.lineColor}66`;
   document.getElementById('trains-list').innerHTML = `
     <div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>`;
   document.getElementById('perturbations').innerHTML = `<div class="skeleton" style="height:50px"></div>`;
@@ -706,16 +724,16 @@ function renderTrains(visits) {
   const now = new Date();
   const container = document.getElementById('trains-list');
 
-  // Filter direction Paris (vers le nord), take first MAX_TRAINS
-  const parisTrains = visits
-    .filter(v => {
-      const dest = (v.MonitoredVehicleJourney?.DestinationName?.[0]?.value || '').toLowerCase();
-      return PARIS_KEYWORDS.some(k => dest.includes(k));
-    })
-    .slice(0, MAX_TRAINS);
+  const station = STATIONS[currentStation];
+  const filtered = visits.filter(v => {
+    const dest = (v.MonitoredVehicleJourney?.DestinationName?.[0]?.value || '').toLowerCase();
+    return station.filterDest(dest);
+  }).slice(0, MAX_TRAINS);
 
-  // If no direction filter match, take first MAX_TRAINS anyway
-  const trains = parisTrains.length > 0 ? parisTrains : visits.slice(0, MAX_TRAINS);
+  console.log('Destinations reçues:', visits.slice(0, 6).map(v =>
+    v.MonitoredVehicleJourney?.DestinationName?.[0]?.value
+  ));
+  const trains = filtered.length > 0 ? filtered : visits.slice(0, MAX_TRAINS);
 
   if (trains.length === 0) {
     container.innerHTML = `<div class="error-card">Aucun passage trouvé pour cette station.</div>`;
@@ -788,7 +806,9 @@ function renderPerturbations(messages) {
   }
 
   container.innerHTML = active.slice(0, 3).map((m, i) => {
-    const content = m.Content?.find(c => c.value)?.value || 'Perturbation en cours';
+    const content = Array.isArray(m.Content)
+      ? (m.Content.find(c => c.value)?.value || 'Perturbation en cours')
+      : (m.Content?.value || m.Message?.[0]?.MessageText?.[0]?.value || 'Perturbation en cours');
     const title = m.InfoMessageVersion?.[0]?.InfoMessageIdentifier?.value || 'Info trafic';
     return `
       <div class="perturbation-card" style="animation-delay:${i * 0.08}s">
