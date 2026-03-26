@@ -723,11 +723,11 @@ let refreshTimer = null;
 
 // ─── API KEY ──────────────────────────────────────────────
 function getApiKey() {
-  return localStorage.getItem('prim_api_key') || '';
+  return (localStorage.getItem('prim_api_key') || '').replace(/[\s\u200B\uFEFF]/g, '');
 }
 
 function saveApiKey() {
-  const key = document.getElementById('api-key-input').value.trim();
+  const key = document.getElementById('api-key-input').value.replace(/[\s\u200B\uFEFF]/g, '');
   if (!key) return;
   localStorage.setItem('prim_api_key', key);
   document.getElementById('setup-panel').style.display = 'none';
@@ -818,7 +818,7 @@ async function fetchData() {
   btn.classList.add('spinning');
 
   const station = STATIONS[currentStation];
-  const passagesUrl = `https://prim.iledefrance-mobilites.fr/marketplace/stop-monitoring?MonitoringRef=${encodeURIComponent(station.stopAreaId)}&LineRef=${encodeURIComponent(station.lineRef)}&MaximumStopVisits=10`;
+  const passagesUrl = `https://prim.iledefrance-mobilites.fr/marketplace/stop-monitoring?MonitoringRef=${station.stopAreaId}&LineRef=${station.lineRef}&MaximumStopVisits=10`;
 
   try {
 
@@ -826,14 +826,17 @@ async function fetchData() {
       headers: { 'apiKey': apiKey }
     });
 
-    if (!passagesRes.ok) throw new Error(`HTTP ${passagesRes.status}`);
+    if (!passagesRes.ok) {
+      const errBody = await passagesRes.text().catch(() => '');
+      throw new Error(`HTTP ${passagesRes.status} — ${errBody.slice(0, 200)}`);
+    }
     const passagesData = await passagesRes.json();
 
     const visits = passagesData?.Siri?.ServiceDelivery?.StopMonitoringDelivery?.[0]?.MonitoredStopVisit || [];
     window._lastTrains = visits;
     renderTrains(visits);
 
-    const pertUrl = `https://prim.iledefrance-mobilites.fr/marketplace/general-message?LineRef=${encodeURIComponent(station.lineRef)}`;
+    const pertUrl = `https://prim.iledefrance-mobilites.fr/marketplace/general-message?LineRef=${station.lineRef}`;
     const pertRes = await fetch(pertUrl, { headers: { 'apiKey': apiKey } });
     if (pertRes.ok) {
       const pertData = await pertRes.json();
