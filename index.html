@@ -818,7 +818,7 @@ async function fetchData() {
   btn.classList.add('spinning');
 
   const station = STATIONS[currentStation];
-  const passagesUrl = `https://prim.iledefrance-mobilites.fr/marketplace/stop-monitoring?MonitoringRef=${station.stopAreaId}&LineRef=${station.lineRef}&MaximumStopVisits=10`;
+  const passagesUrl = `https://prim.iledefrance-mobilites.fr/marketplace/stop-monitoring?MonitoringRef=${station.stopAreaId}&LineRef=${station.lineRef}`;
 
   try {
 
@@ -826,11 +826,11 @@ async function fetchData() {
       headers: { 'apiKey': apiKey }
     });
 
-    if (!passagesRes.ok) {
-      const errBody = await passagesRes.text().catch(() => '');
-      throw new Error(`HTTP ${passagesRes.status} — ${errBody.slice(0, 200)}`);
-    }
     const passagesData = await passagesRes.json();
+    // PRIM sometimes returns 400 with valid SIRI data
+    if (!passagesRes.ok && !passagesData?.Siri) {
+      throw new Error(`HTTP ${passagesRes.status}`);
+    }
 
     const visits = passagesData?.Siri?.ServiceDelivery?.StopMonitoringDelivery?.[0]?.MonitoredStopVisit || [];
     window._lastTrains = visits;
