@@ -935,7 +935,8 @@ function resetApiKey() {
   document.getElementById('setup-panel').style.display = 'block';
   document.getElementById('station-selector').classList.remove('visible');
   document.getElementById('trains-list').innerHTML = '';
-  document.getElementById('perturbations').innerHTML = '';
+  document.getElementById('perturbations-live').innerHTML = '';
+  document.getElementById('perturbations-dated').innerHTML = '';
 }
 
 // ─── CLOCK ────────────────────────────────────────────────
@@ -991,7 +992,8 @@ function switchStation(el) {
   document.getElementById('walk-popup').classList.remove('visible');
   document.getElementById('trains-list').innerHTML = `
     <div class="skeleton"></div><div class="skeleton"></div><div class="skeleton"></div>`;
-  document.getElementById('perturbations').innerHTML = `<div class="skeleton" style="height:50px"></div>`;
+  document.getElementById('perturbations-live').innerHTML = `<div class="skeleton" style="height:50px"></div>`;
+  document.getElementById('perturbations-dated').innerHTML = '';
   fetchData();
 }
 
@@ -1001,7 +1003,8 @@ async function fetchData() {
   if (!apiKey) {
     document.getElementById('setup-panel').style.display = 'block';
     document.getElementById('trains-list').innerHTML = '';
-    document.getElementById('perturbations').innerHTML = '';
+    document.getElementById('perturbations-live').innerHTML = '';
+    document.getElementById('perturbations-dated').innerHTML = '';
     return;
   }
 
@@ -1011,12 +1014,14 @@ async function fetchData() {
 
   const station = STATIONS[currentStation];
   const passagesUrl = `https://prim.iledefrance-mobilites.fr/marketplace/stop-monitoring?MonitoringRef=${station.stopAreaId}&LineRef=${station.lineRef}`;
+  const pertUrl = `https://prim.iledefrance-mobilites.fr/marketplace/general-message?LineRef=${station.lineRef}`;
 
   try {
-
-    const passagesRes = await fetch(passagesUrl, {
-      headers: { 'apiKey': apiKey }
-    });
+    // Fetch passages + perturbations in parallel
+    const [passagesRes, pertRes] = await Promise.all([
+      fetch(passagesUrl, { headers: { 'apiKey': apiKey } }),
+      fetch(pertUrl, { headers: { 'apiKey': apiKey } })
+    ]);
 
     const passagesData = await passagesRes.json();
     // PRIM sometimes returns 400 with valid SIRI data
@@ -1028,8 +1033,6 @@ async function fetchData() {
     window._lastTrains = visits;
     renderTrains(visits);
 
-    const pertUrl = `https://prim.iledefrance-mobilites.fr/marketplace/general-message?LineRef=${station.lineRef}`;
-    const pertRes = await fetch(pertUrl, { headers: { 'apiKey': apiKey } });
     if (pertRes.ok) {
       const pertData = await pertRes.json();
       const messages = pertData?.Siri?.ServiceDelivery?.GeneralMessageDelivery?.[0]?.InfoMessage || [];
@@ -1618,7 +1621,8 @@ function init() {
   if (!apiKey) {
     document.getElementById('setup-panel').style.display = 'block';
     document.getElementById('trains-list').innerHTML = '';
-    document.getElementById('perturbations').innerHTML = '';
+    document.getElementById('perturbations-live').innerHTML = '';
+    document.getElementById('perturbations-dated').innerHTML = '';
   } else {
     document.getElementById('station-selector').classList.add('visible');
     fetchData();
