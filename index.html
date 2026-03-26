@@ -595,12 +595,23 @@
     min-width: 0;
   }
 
+  /* Current week = bigger */
+  .planning-week.current-week .planning-day {
+    height: 24px;
+    border-radius: 4px;
+  }
+  .planning-week.current-week .planning-week-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--accent);
+  }
+
   .planning-day.has-pert { background: rgba(245,158,11,0.35); }
   .planning-day.has-critical { background: rgba(239,68,68,0.4); }
   .planning-day.today {
     outline: 2px solid var(--accent);
     outline-offset: -1px;
-    border-radius: 3px;
+    border-radius: 4px;
   }
   .planning-day.past { opacity: 0.35; }
 
@@ -845,12 +856,14 @@ const STATIONS = {
     lineName: "B",
     lineImg: "img/RER_B.svg",
     filterDest: dest => !['robinson','massy','palaiseau','orsay','gif','saint-rémy','limours'].some(k => dest.includes(k)),
-    // Arrets sur MON trajet (Laplace → Paris nord)
-    myStops: ['laplace','arcueil','bagneux','gentilly','denfert','luxembourg','saint-michel',
-              'chatelet','gare du nord','aulnay','roissy','cdg','aeroport','mitry'],
-    // Arrets sur d'autres branches (pas mon trajet)
+    // Arrets sur MON trajet (Laplace → Chatelet max)
+    myStops: ['laplace','arcueil','bagneux','gentilly','denfert','port-royal','luxembourg',
+              'saint-michel','chatelet','les halles'],
+    // Arrets hors de mon trajet (branches nord + branches sud)
     otherBranch: ['robinson','sceaux','fontenay','croix de berny','massy','palaiseau',
-                  'orsay','gif','saint-remy','limours','lozere','bures'],
+                  'orsay','gif','saint-remy','limours','lozere','bures',
+                  'gare du nord','aulnay','roissy','cdg','aeroport','mitry','sevran',
+                  'villepinte','drancy','blanc-mesnil','bourget'],
   },
   bicetre: {
     name: "Hôp. Bicêtre",
@@ -1188,28 +1201,39 @@ function detectSeverity(message, text) {
 function checkRouteRelevance(text) {
   const station = STATIONS[currentStation];
   const t = text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-
   const normalize = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 
-  // Check if text mentions stops on other branches
+  // First check "entre X et Y" / "de X a Y" patterns — most precise
+  const deA = t.match(/(?:entre|de)\s+([a-z\s'''.,-]+?)\s+(?:et|a|à)\s+([a-z\s'''.,-]+?)(?:\s+en\b|\s+du\b|\s+le\b|\s+pour\b|\s*[.,;]|$)/);
+  if (deA) {
+    const seg1 = deA[1].trim();
+    const seg2 = deA[2].trim();
+    const seg1Mine = station.myStops.some(s => seg1.includes(normalize(s)));
+    const seg2Mine = station.myStops.some(s => seg2.includes(normalize(s)));
+    const seg1Other = station.otherBranch.some(s => seg1.includes(normalize(s)));
+    const seg2Other = station.otherBranch.some(s => seg2.includes(normalize(s)));
+
+    // Both endpoints on other branch → clearly not my problem
+    if (seg1Other && seg2Other) return 'other';
+    // Both endpoints on my route → clearly my problem
+    if (seg1Mine && seg2Mine) return 'mine';
+    // One mine, one other = segment goes BEYOND my route into other branch
+    // e.g. "entre Chatelet et Mitry" = north of Chatelet = not my route
+    if ((seg1Mine && seg2Other) || (seg1Other && seg2Mine)) return 'other';
+    // One known, one unknown
+    if (seg1Other || seg2Other) return 'other';
+    if (seg1Mine || seg2Mine) return 'partial';
+  }
+
+  // Fallback: check general mentions
   const mentionsOther = station.otherBranch.some(s => t.includes(normalize(s)));
   const mentionsMine = station.myStops.some(s => t.includes(normalize(s)));
 
-  // If mentions ONLY other branch stops → not my problem
   if (mentionsOther && !mentionsMine) return 'other';
-  // If mentions my stops → directly concerns me
-  if (mentionsMine) return 'mine';
-  // If mentions specific station names in a "de X a Y" pattern, check if it's my section
-  const deA = t.match(/(?:de|entre)\s+([a-z\s'-]+)\s+(?:a|et|à)\s+([a-z\s'-]+)/);
-  if (deA) {
-    const from = deA[1].trim();
-    const to = deA[2].trim();
-    const fromOther = station.otherBranch.some(s => from.includes(normalize(s)));
-    const toOther = station.otherBranch.some(s => to.includes(normalize(s)));
-    if (fromOther && toOther) return 'other';
-    if (fromOther || toOther) return 'partial';
-  }
-  // No specific stops mentioned → assume it could affect us
+  // Only flag "mine" if no other branch is mentioned (avoids false positives
+  // like "Chatelet" appearing in a Chatelet→CDG perturbation without "entre" pattern)
+  if (mentionsMine && !mentionsOther) return 'mine';
+  if (mentionsMine && mentionsOther) return 'partial';
   return 'unknown';
 }
 
@@ -1340,26 +1364,51 @@ function renderPerturbations(messages) {
     return;
   }
 
-  // Collect all planning data for the calendar
+  // Pre-process all perturbations with metadata for sorting
   const allPlans = [];
+  const now2 = new Date();
+  const todayStart = new Date(now2.getFullYear(), now2.getMonth(), now2.getDate());
+  const todayEnd = new Date(todayStart.getTime() + 86400000);
 
-  container.innerHTML = active.slice(0, 5).map((m, i) => {
+  const processed = active.map(m => {
     const allTexts = extractTexts(m, 0);
     const content = allTexts.sort((a, b) => b.length - a.length)[0] || 'Perturbation en cours';
-
     let severity = detectSeverity(m, content);
     const route = checkRouteRelevance(content);
-
-    // Downgrade severity if it's another branch
-    if (route === 'other') severity = 'info';
-
-    // Parse planning from text
     const plans = parsePlanningFromText(content);
 
-    // If perturbation is not yet active (all dates in the future), downgrade to warn
-    const now2 = new Date();
+    // Downgrade severity
+    if (route === 'other' || route === 'partial') severity = 'info';
     const allFuture = plans.length > 0 && plans.every(p => p.from && p.from > now2);
     if (allFuture && severity === 'critical') severity = 'warn';
+
+    // Check if affects today
+    const affectsToday = plans.some(p => {
+      const from = p.from || todayStart;
+      const to = p.to ? new Date(p.to.getTime() + 86400000) : todayEnd;
+      return todayStart < to && todayEnd > from;
+    });
+    // Earliest date for sorting
+    const earliestDate = plans.reduce((min, p) => {
+      if (p.from && (!min || p.from < min)) return p.from;
+      return min;
+    }, null);
+
+    return { m, content, severity, route, plans, affectsToday, earliestDate };
+  });
+
+  // Sort: today first, then by earliest date, then unknown dates last
+  processed.sort((a, b) => {
+    if (a.affectsToday && !b.affectsToday) return -1;
+    if (!a.affectsToday && b.affectsToday) return 1;
+    if (a.earliestDate && b.earliestDate) return a.earliestDate - b.earliestDate;
+    if (a.earliestDate) return -1;
+    if (b.earliestDate) return 1;
+    return 0;
+  });
+
+  container.innerHTML = processed.slice(0, 5).map((item, i) => {
+    const { content, severity, route, plans } = item;
 
     plans.forEach(p => allPlans.push({ ...p, severity }));
 
@@ -1367,10 +1416,10 @@ function renderPerturbations(messages) {
     const sevIcon = severity === 'critical' ? '⛔' : severity === 'warn' ? '⚠' : 'ℹ';
     const sevLabel = severity === 'critical' ? 'Perturbation' : severity === 'warn' ? 'Info trafic' : 'Information';
 
-    // Route tag
     let routeTag = '';
     if (route === 'other') routeTag = '<span class="pert-branch-tag other">autre branche</span>';
     else if (route === 'mine') routeTag = '<span class="pert-branch-tag mine">mon trajet</span>';
+    else if (route === 'partial') routeTag = '<span class="pert-branch-tag other">partiel</span>';
 
     let planningHtml = '';
     if (plans.length > 0) {
@@ -1457,7 +1506,9 @@ function renderPlanningCalendar(plans) {
     if (weekStart >= effectiveEnd) break;
 
     const label = `${weekStart.getDate()} ${monthNames[weekStart.getMonth()]}`;
-    html += `<div class="planning-week"><div class="planning-week-label">${label}</div>`;
+    const weekEnd = new Date(weekStart.getTime() + 7 * 86400000);
+    const isCurrentWeek = today >= weekStart && today < weekEnd;
+    html += `<div class="planning-week${isCurrentWeek ? ' current-week' : ''}"><div class="planning-week-label">${label}</div>`;
 
     for (let d = 0; d < 7; d++) {
       const day = new Date(weekStart);
