@@ -818,9 +818,9 @@ async function fetchData() {
   btn.classList.add('spinning');
 
   const station = STATIONS[currentStation];
+  const passagesUrl = `https://prim.iledefrance-mobilites.fr/marketplace/stop-monitoring?MonitoringRef=${encodeURIComponent(station.stopAreaId)}&LineRef=${encodeURIComponent(station.lineRef)}&MaximumStopVisits=10`;
 
   try {
-    const passagesUrl = `https://prim.iledefrance-mobilites.fr/marketplace/stop-monitoring?MonitoringRef=${station.stopAreaId}&LineRef=${station.lineRef}&MaximumStopVisits=10`;
 
     const passagesRes = await fetch(passagesUrl, {
       headers: { 'apiKey': apiKey }
@@ -833,7 +833,7 @@ async function fetchData() {
     window._lastTrains = visits;
     renderTrains(visits);
 
-    const pertUrl = `https://prim.iledefrance-mobilites.fr/marketplace/general-message?LineRef=${station.lineRef}`;
+    const pertUrl = `https://prim.iledefrance-mobilites.fr/marketplace/general-message?LineRef=${encodeURIComponent(station.lineRef)}`;
     const pertRes = await fetch(pertUrl, { headers: { 'apiKey': apiKey } });
     if (pertRes.ok) {
       const pertData = await pertRes.json();
