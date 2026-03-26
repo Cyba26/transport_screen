@@ -180,18 +180,40 @@
   }
 
   .walk-popup input[type=range] {
-    margin-left: auto;
-    width: 80px;
+    flex: 1;
+    min-width: 0;
+    height: 36px;
     accent-color: var(--accent);
     cursor: pointer;
+    -webkit-appearance: none;
+    appearance: none;
+    background: transparent;
+  }
+
+  .walk-popup input[type=range]::-webkit-slider-runnable-track {
+    height: 6px;
+    border-radius: 3px;
+    background: var(--border);
+  }
+
+  .walk-popup input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--accent);
+    margin-top: -11px;
+    border: none;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
   }
 
   .walk-value {
     font-family: 'DM Mono', monospace;
-    font-size: 13px;
+    font-size: 15px;
+    font-weight: 600;
     color: var(--accent);
-    min-width: 30px;
-    text-align: right;
+    min-width: 36px;
+    text-align: center;
   }
 
   /* SECTION HEADER with update time */
@@ -353,12 +375,18 @@
   .mins.warn { color: var(--warn); }
   .mins.danger { color: var(--danger); }
 
-  .adjusted-tag {
+  .leave-time {
     font-family: 'DM Mono', monospace;
-    font-size: 9px;
-    color: var(--muted);
-    margin-top: 2px;
+    font-size: 10px;
+    color: var(--text);
+    margin-top: 3px;
     text-align: right;
+    opacity: 0.7;
+  }
+
+  .leave-time.late {
+    color: var(--danger);
+    opacity: 1;
   }
 
   /* PERTURBATIONS */
@@ -602,7 +630,7 @@ const STATIONS = {
     lineRef: "STIF:Line::C01384:",
     lineName: "14",
     lineImg: "img/Ligne_14.svg",
-    filterDest: dest => ['saint-lazare','mairie','saint-ouen','orly','roissy','cdg','aéroport'].some(k => dest.includes(k)) || !['olympiades','chevilly','morangis'].some(k => dest.includes(k)),
+    filterDest: dest => !['olympiades','chevilly','morangis','villejuif','kremlin','thiais'].some(k => dest.includes(k)),
   },
   barbara: {
     name: "Barbara",
@@ -610,7 +638,7 @@ const STATIONS = {
     lineRef: "STIF:Line::C01374:",
     lineName: "4",
     lineImg: "img/Ligne_4.svg",
-    filterDest: dest => ['clignancourt','gare du nord','saint-denis'].some(k => dest.includes(k)) || !['montrouge','bagneux'].some(k => dest.includes(k)),
+    filterDest: dest => !['montrouge','bagneux','mairie de montrouge'].some(k => dest.includes(k)),
   }
 };
 
@@ -798,6 +826,10 @@ function renderTrains(visits) {
     const mission = journey?.JourneyNote?.[0]?.value || '';
     const timeStr = t.depTime.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 
+    // "Partir a" = heure du train - temps de marche
+    const leaveAt = new Date(t.depTime.getTime() - walkMinutes * 60000);
+    const leaveStr = leaveAt.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+
     let urgencyClass = '';
     let minsClass = 'ok';
     if (t.adjustedMins <= 0) { urgencyClass = 'urgent'; minsClass = 'danger'; }
@@ -805,6 +837,7 @@ function renderTrains(visits) {
 
     const minsDisplay = t.adjustedMins <= 0 ? 'rate' : `${t.adjustedMins}`;
     const minsLabel = t.adjustedMins <= 0 ? '' : 'min';
+    const lateClass = t.adjustedMins <= 0 ? ' late' : '';
 
     return `
       <div class="train-card ${urgencyClass}" style="animation-delay:${i * 0.07}s">
@@ -819,7 +852,7 @@ function renderTrains(visits) {
         <div class="countdown">
           <div class="mins ${minsClass}">${minsDisplay}</div>
           <div class="mins-label">${minsLabel}</div>
-          ${walkMinutes > 0 ? `<div class="adjusted-tag">-${walkMinutes}m marche</div>` : ''}
+          <div class="leave-time${lateClass}">${t.adjustedMins <= 0 ? 'trop tard' : `partir ${leaveStr}`}</div>
         </div>
       </div>`;
   }).join('');
@@ -828,6 +861,8 @@ function renderTrains(visits) {
 // ─── RENDER PERTURBATIONS ─────────────────────────────────
 function renderPerturbations(messages) {
   const container = document.getElementById('perturbations');
+
+  console.log('Perturbations brutes:', JSON.stringify(messages.slice(0, 2), null, 2));
 
   const active = messages.filter(m => {
     const validity = m.ValidUntilTime;
@@ -844,10 +879,47 @@ function renderPerturbations(messages) {
   }
 
   container.innerHTML = active.slice(0, 3).map((m, i) => {
-    const content = Array.isArray(m.Content)
-      ? (m.Content.find(c => c.value)?.value || 'Perturbation en cours')
-      : (m.Content?.value || m.Message?.[0]?.MessageText?.[0]?.value || 'Perturbation en cours');
-    const title = m.InfoMessageVersion?.[0]?.InfoMessageIdentifier?.value || 'Info trafic';
+    // Try all known SIRI message structures
+    let content = 'Perturbation en cours';
+    // Structure 1: Content array or object
+    if (Array.isArray(m.Content)) {
+      const found = m.Content.find(c => c.value);
+      if (found) content = found.value;
+    } else if (m.Content?.value) {
+      content = m.Content.value;
+    }
+    // Structure 2: Message[].MessageText (SIRI GeneralMessage)
+    if (content === 'Perturbation en cours' && m.Message) {
+      const msgs = Array.isArray(m.Message) ? m.Message : [m.Message];
+      for (const msg of msgs) {
+        const texts = msg.MessageText || msg.Content?.MessageText;
+        if (texts) {
+          const arr = Array.isArray(texts) ? texts : [texts];
+          const txt = arr.find(t => t.value);
+          if (txt) { content = txt.value; break; }
+        }
+      }
+    }
+    // Structure 3: InfoMessageVersion content
+    if (content === 'Perturbation en cours' && m.InfoMessageVersion) {
+      const versions = Array.isArray(m.InfoMessageVersion) ? m.InfoMessageVersion : [m.InfoMessageVersion];
+      for (const v of versions) {
+        const msgs = v.Message || [];
+        const arr = Array.isArray(msgs) ? msgs : [msgs];
+        for (const msg of arr) {
+          const texts = msg.MessageText;
+          if (texts) {
+            const txArr = Array.isArray(texts) ? texts : [texts];
+            const txt = txArr.find(t => t.value);
+            if (txt) { content = txt.value; break; }
+          }
+        }
+        if (content !== 'Perturbation en cours') break;
+      }
+    }
+
+    const title = m.InfoMessageIdentifier?.value || m.InfoMessageVersion?.[0]?.InfoMessageIdentifier?.value || 'Info trafic';
+
     return `
       <div class="perturbation-card" style="animation-delay:${i * 0.08}s">
         <div class="pert-title">${title}</div>
