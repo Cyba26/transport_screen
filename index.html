@@ -113,8 +113,14 @@
   /* HEADER */
   .header {
     display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .header .line-badge {
+    height: 42px;
+    width: auto;
+    flex-shrink: 0;
   }
 
   .station-info h1 {
@@ -131,12 +137,6 @@
     margin-top: 4px;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-  }
-
-  .line-badge {
-    height: 40px;
-    width: auto;
-    flex-shrink: 0;
   }
 
   /* WALK TAG (inline in subtitle) */
@@ -453,16 +453,37 @@
   }
 
   .perturbation-card {
-    background: rgba(245,158,11,0.06);
-    border: 1px solid rgba(245,158,11,0.2);
     border-radius: 12px;
     padding: 12px 14px;
     font-size: 13px;
     line-height: 1.5;
-    color: #d4a847;
     animation: slideIn 0.3s ease forwards;
     opacity: 0;
   }
+
+  /* Severity: info (blue) */
+  .perturbation-card.sev-info {
+    background: rgba(79,142,247,0.06);
+    border: 1px solid rgba(79,142,247,0.2);
+    color: #6b9cf7;
+  }
+  .perturbation-card.sev-info .pert-title { color: #4f8ef7; }
+
+  /* Severity: warn (orange) */
+  .perturbation-card.sev-warn {
+    background: rgba(245,158,11,0.06);
+    border: 1px solid rgba(245,158,11,0.2);
+    color: #d4a847;
+  }
+  .perturbation-card.sev-warn .pert-title { color: #f59e0b; }
+
+  /* Severity: critical (red) */
+  .perturbation-card.sev-critical {
+    background: rgba(239,68,68,0.08);
+    border: 1px solid rgba(239,68,68,0.3);
+    color: #f87171;
+  }
+  .perturbation-card.sev-critical .pert-title { color: #ef4444; }
 
   .perturbation-card .pert-title {
     font-weight: 600;
@@ -473,6 +494,42 @@
     display: flex;
     align-items: center;
     gap: 6px;
+  }
+
+  .perturbation-card .pert-content {
+    margin-top: 4px;
+  }
+
+  .perturbation-card .pert-planning {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid currentColor;
+    border-top-color: inherit;
+    opacity: 0.6;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .pert-planning .plan-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .pert-planning .plan-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: currentColor;
+    flex-shrink: 0;
+  }
+
+  .pert-planning .plan-dot.now {
+    background: var(--danger);
+    box-shadow: 0 0 6px var(--danger);
   }
 
   .no-perturbation {
@@ -630,11 +687,11 @@
 
   <!-- HEADER -->
   <div class="header">
+    <img class="line-badge" id="line-badge" src="img/RER_B.svg" alt="RER B">
     <div class="station-info">
       <h1 id="station-name">Laplace</h1>
       <div class="subtitle">direction Paris • <span class="clock" id="clock">--:--</span> <span class="walk-tag" id="walk-tag" onclick="toggleWalkPopup()">5m</span></div>
     </div>
-    <img class="line-badge" id="line-badge" src="img/RER_B.svg" alt="RER B">
   </div>
 
   <!-- API KEY SETUP (shown if no key) -->
@@ -987,6 +1044,139 @@ function renderTrains(visits) {
 }
 
 // ─── RENDER PERTURBATIONS ─────────────────────────────────
+
+// Deep extract text from nested SIRI objects
+function extractTexts(obj, depth) {
+  if (!obj || depth > 8) return [];
+  if (typeof obj === 'string') return obj.length > 20 ? [obj] : [];
+  if (Array.isArray(obj)) return obj.flatMap(item => extractTexts(item, depth + 1));
+  if (typeof obj === 'object') {
+    const results = [];
+    for (const key of ['value', 'MessageText', 'Content', 'Message', 'InfoMessageVersion']) {
+      if (obj[key] !== undefined) results.push(...extractTexts(obj[key], depth + 1));
+    }
+    if (results.length === 0) {
+      for (const val of Object.values(obj)) results.push(...extractTexts(val, depth + 1));
+    }
+    return results;
+  }
+  return [];
+}
+
+// Detect severity from InfoChannelRef or keywords
+function detectSeverity(message, text) {
+  const channel = (message.InfoChannelRef?.value || message.InfoChannelRef || '').toLowerCase();
+  if (channel === 'perturbation') return 'critical';
+  if (channel === 'information') return 'info';
+
+  const t = text.toLowerCase();
+  // Critical keywords
+  if (['interrompu','supprim','aucun train','aucun metro','trafic nul','arret','fermetur','incident grave'].some(k => t.includes(k))) return 'critical';
+  // Warning keywords
+  if (['perturb','ralenti','retard','limit','travaux','interruption partielle','forte affluence'].some(k => t.includes(k))) return 'warn';
+  return 'info';
+}
+
+// Parse French date expressions from perturbation text
+function parsePlanningFromText(text) {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const plans = [];
+
+  const MONTHS = {
+    'janvier':0,'fevrier':1,'février':1,'mars':2,'avril':3,'mai':4,'juin':5,
+    'juillet':6,'aout':7,'août':7,'septembre':8,'octobre':9,'novembre':10,'decembre':11,'décembre':11
+  };
+
+  function parseDate(dayStr, monthStr, hourStr) {
+    const day = parseInt(dayStr);
+    const month = MONTHS[monthStr.toLowerCase()];
+    if (month === undefined || isNaN(day)) return null;
+    const d = new Date(currentYear, month, day);
+    if (hourStr) {
+      const h = parseInt(hourStr);
+      if (!isNaN(h)) d.setHours(h, 0, 0);
+    }
+    // If date is far in the past, try next year
+    if (d < new Date(currentYear, now.getMonth() - 2, 1)) d.setFullYear(currentYear + 1);
+    return d;
+  }
+
+  function fmt(d) {
+    return d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
+  }
+  function fmtH(d) {
+    return d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  const t = text.replace(/\s+/g, ' ');
+
+  // "du 5 avril au 12 avril" / "du 5 au 12 avril"
+  const duAu = t.match(/du\s+(\d{1,2})\s+(\w+)\s+au\s+(\d{1,2})\s+(\w+)/i)
+            || t.match(/du\s+(\d{1,2})\s+au\s+(\d{1,2})\s+(\w+)/i);
+  if (duAu) {
+    let from, to;
+    if (duAu.length === 5) {
+      from = parseDate(duAu[1], duAu[2]);
+      to = parseDate(duAu[3], duAu[4]);
+    } else {
+      from = parseDate(duAu[1], duAu[3]);
+      to = parseDate(duAu[2], duAu[3]);
+    }
+    if (from && to) {
+      const isNow = now >= from && now <= new Date(to.getTime() + 86400000);
+      plans.push({ from, to, isNow, label: `${fmt(from)} → ${fmt(to)}` });
+    }
+  }
+
+  // "le 5 avril" / "le 5 avril de 5h à 14h"
+  const leDate = t.match(/le\s+(\d{1,2})\s+(\w+)(?:\s+de\s+(\d{1,2})h?\s*[àa]\s*(\d{1,2})h?)?/i);
+  if (leDate && !duAu) {
+    const d = parseDate(leDate[1], leDate[2]);
+    if (d) {
+      let label = fmt(d);
+      let from = d, to = new Date(d.getTime() + 86400000);
+      if (leDate[3] && leDate[4]) {
+        from = new Date(d); from.setHours(parseInt(leDate[3]), 0);
+        to = new Date(d); to.setHours(parseInt(leDate[4]), 0);
+        label += ` ${leDate[3]}h-${leDate[4]}h`;
+      }
+      const isNow = now >= from && now <= to;
+      plans.push({ from, to, isNow, label });
+    }
+  }
+
+  // "à partir du 5 avril"
+  const aPartir = t.match(/[àa]\s*partir\s+du\s+(\d{1,2})\s+(\w+)/i);
+  if (aPartir && !duAu && !leDate) {
+    const d = parseDate(aPartir[1], aPartir[2]);
+    if (d) {
+      const isNow = now >= d;
+      plans.push({ from: d, to: null, isNow, label: `a partir du ${fmt(d)}` });
+    }
+  }
+
+  // "jusqu'au 5 avril" / "jusqu'à 14h" / "jusqu'à 14:00"
+  const jusqua = t.match(/jusqu[''`](?:au|à)\s+(?:(\d{1,2})\s+(\w+)|(\d{1,2})[h:]\s*(\d{0,2}))/i);
+  if (jusqua) {
+    if (jusqua[1] && jusqua[2]) {
+      const d = parseDate(jusqua[1], jusqua[2]);
+      if (d) {
+        const isNow = now <= new Date(d.getTime() + 86400000);
+        plans.push({ from: null, to: d, isNow, label: `jusqu'au ${fmt(d)}` });
+      }
+    } else if (jusqua[3]) {
+      const d = new Date(now);
+      d.setHours(parseInt(jusqua[3]), parseInt(jusqua[4] || '0'), 0);
+      if (d < now) d.setDate(d.getDate() + 1);
+      const isNow = now <= d;
+      plans.push({ from: null, to: d, isNow, label: `jusqu'a ${fmtH(d)}` });
+    }
+  }
+
+  return plans;
+}
+
 function renderPerturbations(messages) {
   const container = document.getElementById('perturbations');
 
@@ -1007,46 +1197,31 @@ function renderPerturbations(messages) {
   }
 
   container.innerHTML = active.slice(0, 3).map((m, i) => {
-    // Deep extract: recursively find all long text values in the message object
-    function extractTexts(obj, depth) {
-      if (!obj || depth > 8) return [];
-      if (typeof obj === 'string') return obj.length > 20 ? [obj] : [];
-      if (Array.isArray(obj)) return obj.flatMap(item => extractTexts(item, depth + 1));
-      if (typeof obj === 'object') {
-        const results = [];
-        // Prioritize known text fields
-        for (const key of ['value', 'MessageText', 'Content', 'Message', 'InfoMessageVersion']) {
-          if (obj[key] !== undefined) {
-            results.push(...extractTexts(obj[key], depth + 1));
-          }
-        }
-        if (results.length === 0) {
-          for (const val of Object.values(obj)) {
-            results.push(...extractTexts(val, depth + 1));
-          }
-        }
-        return results;
-      }
-      return [];
-    }
-
     const allTexts = extractTexts(m, 0);
-    // Pick the longest text as the most informative
     const content = allTexts.sort((a, b) => b.length - a.length)[0] || 'Perturbation en cours';
 
-    // Clean up title - use short text or fallback
-    let title = 'Info trafic';
-    const rawTitle = m.InfoMessageIdentifier?.value || '';
-    if (rawTitle.length > 40) {
-      title = 'Info trafic';
-    } else if (rawTitle) {
-      title = rawTitle;
+    const severity = detectSeverity(m, content);
+    const sevClass = `sev-${severity}`;
+    const sevIcon = severity === 'critical' ? '⛔' : severity === 'warn' ? '⚠' : 'ℹ';
+    const sevLabel = severity === 'critical' ? 'Perturbation' : severity === 'warn' ? 'Info trafic' : 'Information';
+
+    // Parse planning from text
+    const plans = parsePlanningFromText(content);
+    let planningHtml = '';
+    if (plans.length > 0) {
+      const now = new Date();
+      planningHtml = `<div class="pert-planning">${plans.map(p => {
+        const dotClass = p.isNow ? 'plan-dot now' : 'plan-dot';
+        const status = p.isNow ? ' (en cours)' : (p.from && p.from > now ? ' (a venir)' : '');
+        return `<div class="plan-row"><span class="${dotClass}"></span>${p.label}${status}</div>`;
+      }).join('')}</div>`;
     }
 
     return `
-      <div class="perturbation-card" style="animation-delay:${i * 0.08}s">
-        <div class="pert-title">${title}</div>
-        <div>${content}</div>
+      <div class="perturbation-card ${sevClass}" style="animation-delay:${i * 0.08}s">
+        <div class="pert-title">${sevIcon} ${sevLabel}</div>
+        <div class="pert-content">${content}</div>
+        ${planningHtml}
       </div>`;
   }).join('');
 }
