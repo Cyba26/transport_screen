@@ -929,7 +929,7 @@ async function fetchData() {
   btn.classList.add('spinning');
 
   const station = STATIONS[currentStation];
-  const passagesUrl = `/api/proxy?endpoint=stop-monitoring&MonitoringRef=${station.stopAreaId}&LineRef=${station.lineRef}`;
+  const passagesUrl = `/api/proxy?endpoint=stop-monitoring&MonitoringRef=${station.stopAreaId}`;
   const pertUrl = `/api/proxy?endpoint=general-message&LineRef=${station.lineRef}`;
 
   try {
