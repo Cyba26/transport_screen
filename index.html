@@ -794,10 +794,30 @@
 
 <script>
 // ─── CONFIG ───────────────────────────────────────────────
+// Convert SNCF API departures to PRIM-like MonitoredStopVisit format
+function sncfToVisits(departures) {
+  return departures.map(dep => {
+    const raw = dep.stop_date_time?.departure_date_time || dep.stop_date_time?.arrival_date_time;
+    // Format: "20260409T102500" → ISO
+    const iso = raw ? raw.replace(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})$/, '$1-$2-$3T$4:$5:$6') : null;
+    return {
+      MonitoredVehicleJourney: {
+        LineRef: { value: 'STIF:Line::C01743:' },
+        DestinationName: [{ value: dep.display_informations?.direction || '' }],
+        JourneyNote: [{ value: dep.display_informations?.headsign || '' }],
+        MonitoredCall: {
+          AimedDepartureTime: iso,
+          ExpectedDepartureTime: dep.stop_date_time?.data_freshness === 'realtime' ? iso : null,
+        }
+      }
+    };
+  });
+}
+
 const STATIONS = {
   laplace: {
     name: "Laplace",
-    stopPointIds: ["STIF:StopPoint:Q:473932:","STIF:StopPoint:Q:473927:","STIF:StopPoint:Q:473926:"],
+    sncfStopAreaId: "stop_area:SNCF:87758664",
     lineRef: "STIF:Line::C01743:",
     lineName: "B",
     lineImg: "img/RER_B.svg",
@@ -930,23 +950,21 @@ async function fetchData() {
 
   const station = STATIONS[currentStation];
   const pertUrl = `/api/proxy?endpoint=general-message&LineRef=${station.lineRef}`;
-  const passagesUrls = station.stopPointIds
-    ? station.stopPointIds.map(id => `/api/proxy?endpoint=stop-monitoring&MonitoringRef=${id}`)
-    : [`/api/proxy?endpoint=stop-monitoring&MonitoringRef=${station.stopAreaId}&LineRef=${station.lineRef}`];
+  const passagesUrl = station.sncfStopAreaId
+    ? `/api/proxy?endpoint=sncf-departures&stop_area_id=${station.sncfStopAreaId}&count=20`
+    : `/api/proxy?endpoint=stop-monitoring&MonitoringRef=${station.stopAreaId}&LineRef=${station.lineRef}`;
 
   try {
     // Fetch passages + perturbations in parallel via proxy
-    const [pertRes, ...passagesReses] = await Promise.all([
-      fetch(pertUrl),
-      ...passagesUrls.map(url => fetch(url))
-    ]);
+    const [passagesRes, pertRes] = await Promise.all([fetch(passagesUrl), fetch(pertUrl)]);
+    const passagesData = await passagesRes.json();
 
-    const visits = [];
-    for (const passagesRes of passagesReses) {
-      const passagesData = await passagesRes.json();
-      if (!passagesRes.ok && !passagesData?.Siri) continue;
-      const v = passagesData?.Siri?.ServiceDelivery?.StopMonitoringDelivery?.[0]?.MonitoredStopVisit || [];
-      visits.push(...v);
+    let visits;
+    if (station.sncfStopAreaId) {
+      visits = sncfToVisits(passagesData?.departures || []);
+    } else {
+      if (!passagesRes.ok && !passagesData?.Siri) throw new Error(`HTTP ${passagesRes.status}`);
+      visits = passagesData?.Siri?.ServiceDelivery?.StopMonitoringDelivery?.[0]?.MonitoredStopVisit || [];
     }
     window._lastTrains = visits;
     renderTrains(visits);
@@ -963,7 +981,7 @@ async function fetchData() {
     document.getElementById('pulse-dot').style.background = 'var(--ok)';
 
   } catch (err) {
-    console.error('Fetch error:', err, passagesUrls.join(', '));
+    console.error('Fetch error:', err, passagesUrl);
     document.getElementById('trains-list').innerHTML = `
       <div class="error-card">
         Impossible de recuperer les donnees.<br>
