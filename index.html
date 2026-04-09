@@ -797,7 +797,7 @@
 const STATIONS = {
   laplace: {
     name: "Laplace",
-    stopPointIds: ["STIF:StopPoint:Q:473932:","STIF:StopPoint:Q:473927:","STIF:StopPoint:Q:473926:"],
+    stopAreaId: "STIF:StopArea:SP:473844:",
     lineRef: "STIF:Line::C01743:",
     lineName: "B",
     lineImg: "img/RER_B.svg",
@@ -929,24 +929,23 @@ async function fetchData() {
   btn.classList.add('spinning');
 
   const station = STATIONS[currentStation];
-  const stopIds = station.stopPointIds || [station.stopAreaId];
-  const passagesUrls = stopIds.map(id => `/api/proxy?endpoint=stop-monitoring&MonitoringRef=${id}&LineRef=${station.lineRef}`);
+  const passagesUrl = `/api/proxy?endpoint=stop-monitoring&MonitoringRef=${station.stopAreaId}&LineRef=${station.lineRef}`;
   const pertUrl = `/api/proxy?endpoint=general-message&LineRef=${station.lineRef}`;
 
   try {
-    // Fetch passages (all stop points) + perturbations in parallel via proxy
-    const [pertRes, ...passagesReses] = await Promise.all([
-      fetch(pertUrl),
-      ...passagesUrls.map(url => fetch(url))
+    // Fetch passages + perturbations in parallel via proxy
+    const [passagesRes, pertRes] = await Promise.all([
+      fetch(passagesUrl),
+      fetch(pertUrl)
     ]);
 
-    const visits = [];
-    for (const passagesRes of passagesReses) {
-      const passagesData = await passagesRes.json();
-      if (!passagesRes.ok && !passagesData?.Siri) continue;
-      const v = passagesData?.Siri?.ServiceDelivery?.StopMonitoringDelivery?.[0]?.MonitoredStopVisit || [];
-      visits.push(...v);
+    const passagesData = await passagesRes.json();
+    // PRIM sometimes returns 400 with valid SIRI data
+    if (!passagesRes.ok && !passagesData?.Siri) {
+      throw new Error(`HTTP ${passagesRes.status}`);
     }
+
+    const visits = passagesData?.Siri?.ServiceDelivery?.StopMonitoringDelivery?.[0]?.MonitoredStopVisit || [];
     window._lastTrains = visits;
     renderTrains(visits);
 
@@ -962,7 +961,7 @@ async function fetchData() {
     document.getElementById('pulse-dot').style.background = 'var(--ok)';
 
   } catch (err) {
-    console.error('Fetch error:', err, passagesUrls);
+    console.error('Fetch error:', err, passagesUrl);
     document.getElementById('trains-list').innerHTML = `
       <div class="error-card">
         Impossible de recuperer les donnees.<br>
