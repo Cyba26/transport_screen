@@ -1015,7 +1015,7 @@ function renderTrains(visits) {
     v.MonitoredVehicleJourney?.DestinationName?.[0]?.value
   ));
 
-  const candidates = dirFiltered.length > 0 ? dirFiltered : pool;
+  const candidates = dirFiltered;
 
   // Compute adjusted minutes for each train
   const withTiming = candidates.map(v => {
