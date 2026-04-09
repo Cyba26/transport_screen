@@ -981,8 +981,12 @@ function renderTrains(visits) {
 
   const station = STATIONS[currentStation];
 
-  // Filter by direction
-  let dirFiltered = visits.filter(v => {
+  // Filter by line then by direction
+  const lineFiltered = visits.filter(v =>
+    v.MonitoredVehicleJourney?.LineRef?.value === station.lineRef
+  );
+  const pool = lineFiltered.length > 0 ? lineFiltered : visits;
+  let dirFiltered = pool.filter(v => {
     const dest = (v.MonitoredVehicleJourney?.DestinationName?.[0]?.value || '').toLowerCase();
     return station.filterDest(dest);
   });
@@ -991,7 +995,7 @@ function renderTrains(visits) {
     v.MonitoredVehicleJourney?.DestinationName?.[0]?.value
   ));
 
-  const candidates = dirFiltered.length > 0 ? dirFiltered : visits;
+  const candidates = dirFiltered.length > 0 ? dirFiltered : pool;
 
   // Compute adjusted minutes for each train
   const withTiming = candidates.map(v => {
