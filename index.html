@@ -847,11 +847,11 @@ const STATIONS = {
   },
   barbara: {
     name: "Barbara",
-    stopAreaId: "STIF:StopPoint:Q:483313:",
+    stopAreaId: "STIF:StopPoint:Q:483277:",
     lineRef: "STIF:Line::C01374:",
     lineName: "4",
     lineImg: "img/Ligne_4.svg",
-    filterDest: dest => !['bagneux','lucie aubrac','mairie de montrouge','châtillon','chatillon','vache noire'].some(k => dest.includes(k)),
+    filterDest: dest => true,
     myStops: ['barbara','verdun','chatillon','montrouge','alesia','denfert',
               'saint-germain','chatelet','gare du nord','gare de l\'est',
               'strasbourg','barbes','clignancourt','marcadet','simplon'],
