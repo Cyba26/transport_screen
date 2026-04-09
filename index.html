@@ -797,7 +797,7 @@
 const STATIONS = {
   laplace: {
     name: "Laplace",
-    stopAreaId: "STIF:StopArea:SP:473844:",
+    stopPointIds: ["STIF:StopPoint:Q:473932:","STIF:StopPoint:Q:473927:","STIF:StopPoint:Q:473926:"],
     lineRef: "STIF:Line::C01743:",
     lineName: "B",
     lineImg: "img/RER_B.svg",
@@ -831,7 +831,7 @@ const STATIONS = {
     lineRef: "STIF:Line::C01374:",
     lineName: "4",
     lineImg: "img/Ligne_4.svg",
-    filterDest: dest => true,
+    filterDest: dest => !['bagneux','lucie aubrac','mairie de montrouge','châtillon','chatillon','vache noire'].some(k => dest.includes(k)),
     myStops: ['barbara','verdun','chatillon','montrouge','alesia','denfert',
               'saint-germain','chatelet','gare du nord','gare de l\'est',
               'strasbourg','barbes','clignancourt','marcadet','simplon'],
@@ -929,23 +929,25 @@ async function fetchData() {
   btn.classList.add('spinning');
 
   const station = STATIONS[currentStation];
-  const passagesUrl = `/api/proxy?endpoint=stop-monitoring&MonitoringRef=${station.stopAreaId}`;
   const pertUrl = `/api/proxy?endpoint=general-message&LineRef=${station.lineRef}`;
+  const passagesUrls = station.stopPointIds
+    ? station.stopPointIds.map(id => `/api/proxy?endpoint=stop-monitoring&MonitoringRef=${id}`)
+    : [`/api/proxy?endpoint=stop-monitoring&MonitoringRef=${station.stopAreaId}&LineRef=${station.lineRef}`];
 
   try {
     // Fetch passages + perturbations in parallel via proxy
-    const [passagesRes, pertRes] = await Promise.all([
-      fetch(passagesUrl),
-      fetch(pertUrl)
+    const [pertRes, ...passagesReses] = await Promise.all([
+      fetch(pertUrl),
+      ...passagesUrls.map(url => fetch(url))
     ]);
 
-    const passagesData = await passagesRes.json();
-    // PRIM sometimes returns 400 with valid SIRI data
-    if (!passagesRes.ok && !passagesData?.Siri) {
-      throw new Error(`HTTP ${passagesRes.status}`);
+    const visits = [];
+    for (const passagesRes of passagesReses) {
+      const passagesData = await passagesRes.json();
+      if (!passagesRes.ok && !passagesData?.Siri) continue;
+      const v = passagesData?.Siri?.ServiceDelivery?.StopMonitoringDelivery?.[0]?.MonitoredStopVisit || [];
+      visits.push(...v);
     }
-
-    const visits = passagesData?.Siri?.ServiceDelivery?.StopMonitoringDelivery?.[0]?.MonitoredStopVisit || [];
     window._lastTrains = visits;
     renderTrains(visits);
 
@@ -961,7 +963,7 @@ async function fetchData() {
     document.getElementById('pulse-dot').style.background = 'var(--ok)';
 
   } catch (err) {
-    console.error('Fetch error:', err, passagesUrl);
+    console.error('Fetch error:', err, passagesUrls.join(', '));
     document.getElementById('trains-list').innerHTML = `
       <div class="error-card">
         Impossible de recuperer les donnees.<br>
