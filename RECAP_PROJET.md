@@ -145,3 +145,14 @@ Colle ce texte au début de chaque session Claude Code :
   toggleTheme()          → Dark/Light mode
   init()                 → Démarrage (restore préférences, fetch initial)
 ```
+
+## Hébergement
+
+Déployé sur Vercel. `index.html` et `img/` sont servis en statique ; `api/proxy.js`
+devient une fonction serverless qui porte les clés `PRIM_API_KEY` et `SNCF_API_KEY`
+(variables d'environnement du projet Vercel — elles ne doivent jamais atteindre le
+client). Le `vercel.json` renvoie les URL inconnues vers `index.html`, ce que faisait
+le fallback du serveur Express avant la migration.
+
+Pas de serveur à lancer : le rafraîchissement des horaires est fait par le client,
+qui appelle `/api/proxy` à intervalle régulier.
