@@ -156,3 +156,19 @@ le fallback du serveur Express avant la migration.
 
 Pas de serveur à lancer : le rafraîchissement des horaires est fait par le client,
 qui appelle `/api/proxy` à intervalle régulier.
+
+## Appli Android (APK + widget)
+
+Le dossier `android/` contient une appli Android native (Java, sans dépendance) :
+- l'appli affiche le tableau de bord Vercel dans une WebView ;
+- un **widget d'écran d'accueil** redimensionnable affiche les prochains passages d'un des
+  3 arrêts, se met à jour au **déverrouillage** du téléphone, a un bouton **↻** et affiche
+  l'**heure de mise à jour**.
+
+Le widget appelle directement `/api/proxy` sur `https://transport-screen.vercel.app` ;
+les clés restent côté Vercel. Les IDs et filtres des arrêts sont dupliqués dans
+`android/app/src/main/java/io/github/cyba26/transport/Station.java`.
+
+L'APK est compilé par GitHub Actions (`.github/workflows/android.yml`) ; sur `main`, il est
+publié en release `android-latest`. Détails et installation : `android/README.md`.
+`.vercelignore` exclut `android/` du déploiement Vercel.

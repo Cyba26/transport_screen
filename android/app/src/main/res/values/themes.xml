@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Le tableau de bord web est en thème clair par défaut -->
+    <style name="Theme.Transport" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/app_background</item>
+        <item name="android:statusBarColor">@color/app_background</item>
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
+
+    <style name="Theme.Transport.Config" parent="android:Theme.DeviceDefault.Light.Dialog.NoActionBar.MinWidth" />
+
+    <style name="WidgetText">
+        <item name="android:textColor">@color/widget_text</item>
+        <item name="android:maxLines">1</item>
+        <item name="android:ellipsize">end</item>
+        <item name="android:includeFontPadding">false</item>
+        <item name="android:fontFeatureSettings">tnum</item>
+    </style>
+
+    <style name="WidgetText.Muted">
+        <item name="android:textColor">@color/widget_muted</item>
+    </style>
+
+    <style name="WidgetText.Minutes">
+        <item name="android:textColor">@color/widget_accent</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+</resources>

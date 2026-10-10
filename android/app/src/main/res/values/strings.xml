@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Transport</string>
+
+    <!-- Widget -->
+    <string name="widget_name">Prochains passages</string>
+    <string name="widget_description">Prochain passage d\'un arrêt, actualisé à chaque déverrouillage</string>
+    <string name="refresh">Actualiser</string>
+    <string name="no_value">—</string>
+    <string name="no_time">--:--</string>
+    <string name="updated_at">màj %s</string>
+    <string name="departure_imminent">&lt; 1 min</string>
+    <string name="departure_minutes">%d min</string>
+    <string name="departure_hours">%1$d h %2$02d</string>
+    <string name="then_departures">puis %s</string>
+    <string name="departure_detail">%1$s · %2$s</string>
+    <string name="status_loading">Chargement…</string>
+    <string name="status_offline">Hors ligne — touchez ↻</string>
+    <string name="status_tap_refresh">Touchez ↻ pour charger</string>
+    <string name="status_no_departure">Aucun passage prévu</string>
+
+    <!-- Aperçu dans la liste des widgets -->
+    <string name="preview_station">Laplace</string>
+    <string name="preview_updated">màj 08:12</string>
+    <string name="preview_time_1">08:16</string>
+    <string name="preview_destination_1">Aéroport CDG 2 TGV</string>
+    <string name="preview_minutes_1">4 min</string>
+    <string name="preview_time_2">08:23</string>
+    <string name="preview_destination_2">Mitry-Claye</string>
+    <string name="preview_minutes_2">11 min</string>
+
+    <!-- Configuration -->
+    <string name="config_title">Quel arrêt afficher ?</string>
+    <string name="config_subtitle">Touchez le nom de l\'arrêt sur le widget pour en changer.</string>
+    <string name="battery_hint">Pour que le widget se mette à jour à chaque déverrouillage, autorisez l\'appli à tourner en arrière-plan.</string>
+    <string name="battery_button">Autoriser</string>
+
+    <!-- Service de déverrouillage -->
+    <string name="unlock_channel_name">Actualisation du widget</string>
+    <string name="unlock_channel_description">Garde le widget à jour quand vous déverrouillez le téléphone</string>
+    <string name="unlock_notification_title">Widget transport actif</string>
+    <string name="unlock_notification_text">Actualisé à chaque déverrouillage</string>
+
+    <!-- Appli -->
+    <string name="offline_message">Impossible de charger le tableau de bord.</string>
+    <string name="offline_retry">Réessayer</string>
+</resources>
