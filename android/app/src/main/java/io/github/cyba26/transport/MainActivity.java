@@ -54,6 +54,8 @@ public class MainActivity extends Activity {
         settings.setJavaScriptEnabled(true);
         // localStorage : thème et temps de marche par station
         settings.setDomStorageEnabled(true);
+        // Permet au site de savoir qu'il tourne dans l'appli (lien « mettre à jour l'appli »)
+        settings.setUserAgentString(settings.getUserAgentString() + " TransportScreenApp/" + BuildConfig.VERSION_NAME);
         webView.setWebViewClient(new WebViewClient() {
             @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {

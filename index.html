@@ -656,10 +656,22 @@
   .footer {
     display: flex;
     align-items: center;
-    justify-content: flex-end;
+    justify-content: space-between;
     gap: 8px;
     padding-bottom: 8px;
   }
+
+  .apk-link {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    text-decoration: none;
+    padding: 8px 0;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .apk-link:active { color: var(--accent); }
 
   .refresh-btn {
     background: var(--surface);
@@ -784,6 +796,7 @@
 
   <!-- FOOTER -->
   <div class="footer">
+    <a class="apk-link" id="apk-link" href="https://github.com/Cyba26/transport_screen/releases/download/android-latest/transport-screen.apk">↓ appli Android</a>
     <div style="display:flex;gap:8px">
       <button class="theme-toggle" id="theme-btn" onclick="toggleTheme()" title="Theme">🌙</button>
       <button class="refresh-btn" id="refresh-btn" onclick="fetchData()" title="Actualiser">↻</button>
@@ -1558,6 +1571,11 @@ function applyTheme() {
 function init() {
   applyTheme();
   loadWalkForStation();
+
+  // Dans l'appli Android, le même lien sert à installer la dernière version
+  if (navigator.userAgent.includes('TransportScreenApp')) {
+    document.getElementById('apk-link').textContent = '↻ mettre à jour l\'appli';
+  }
 
   document.getElementById('station-selector').classList.add('visible');
   fetchData();
