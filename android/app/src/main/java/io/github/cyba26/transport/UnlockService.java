@@ -103,7 +103,7 @@ public class UnlockService extends Service {
         PendingIntent openApp = PendingIntent.getActivity(this, 0,
                 new Intent(this, MainActivity.class), PendingIntent.FLAG_IMMUTABLE);
         return new Notification.Builder(this, CHANNEL_ID)
-                .setSmallIcon(R.drawable.ic_stat_metro)
+                .setSmallIcon(R.drawable.ic_stat_tp)
                 .setContentTitle(getString(R.string.unlock_notification_title))
                 .setContentText(getString(R.string.unlock_notification_text))
                 .setContentIntent(openApp)

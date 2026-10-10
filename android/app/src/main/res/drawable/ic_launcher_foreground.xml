@@ -1,20 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Logo Métro (img/Metro-M.svg) centré dans la zone sûre de l'icône adaptative -->
+<!-- Le « Tp. » de Transport : contours de DM Sans Black (la police du site), même calage
+     que « Nt. » de Notes et « Nw. » de News, dans la zone visible de l'icône adaptative -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <group
-        android:scaleX="0.2113"
-        android:scaleY="0.2113"
-        android:translateX="24"
-        android:translateY="24">
-        <path
-            android:fillColor="#FFFFFF"
-            android:pathData="M142,9A133,133 0,1 1,142 275A133,133 0,1 1,142 9Z" />
-        <path
-            android:fillColor="#0A0082"
-            android:pathData="M212.25,205.15V81.5c0-7.09-3.9-14.53-15.6-14.53-8.85,0-12.4,3.9-16.29,11.69l-38.27,79.73h-0.35L103.11,78.66C99.21,70.87,95.67,67,86.81,67,75.12,67,71.22,74.41,71.22,81.5V205.15c0,6.74,5.32,10.64,11.7,10.64,5.66,0,12-3.9,12-10.64V113h0.36L130.4,184.6c2.47,5,5.67,7.8,11.34,7.8s8.85-2.84,11.33-7.8L188.15,113h0.36v92.12c0,6.74,6.37,10.64,12.05,10.64,6.37,0,11.69-3.9,11.69-10.64Z" />
-    </group>
+    <path
+        android:fillColor="#FFF0F4FF"
+        android:pathData="M38.74 61.17V43.88H32.68V40.27H49.28V43.88H43.22V61.17ZM50.75 67.73V46.12H54.72L55.22 48.09Q55.7 47.46 56.33 46.92Q56.96 46.39 57.84 46.07Q58.72 45.76 59.91 45.76Q62 45.76 63.6 46.8Q65.2 47.85 66.15 49.63Q67.11 51.4 67.11 53.67Q67.11 55.94 66.14 57.72Q65.17 59.49 63.55 60.51Q61.94 61.52 59.94 61.52Q58.33 61.52 57.16 60.96Q56 60.39 55.22 59.37V67.73ZM58.81 57.61Q59.88 57.61 60.73 57.12Q61.58 56.63 62.06 55.73Q62.54 54.84 62.54 53.67Q62.54 52.51 62.06 51.61Q61.58 50.72 60.73 50.19Q59.88 49.67 58.81 49.67Q57.7 49.67 56.85 50.19Q56 50.72 55.52 51.61Q55.05 52.51 55.05 53.64Q55.05 54.81 55.52 55.72Q56 56.63 56.85 57.12Q57.7 57.61 58.81 57.61ZM72.63 61.32Q71.41 61.32 70.65 60.58Q69.88 59.85 69.88 58.81Q69.88 57.73 70.65 57Q71.41 56.27 72.63 56.27Q73.83 56.27 74.57 57Q75.32 57.73 75.32 58.81Q75.32 59.85 74.57 60.58Q73.83 61.32 72.63 61.32Z" />
 </vector>

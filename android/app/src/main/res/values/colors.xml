@@ -6,5 +6,5 @@
     <color name="widget_text">#0F172A</color>
     <color name="widget_muted">#64748B</color>
     <color name="widget_accent">#2563EB</color>
-    <color name="launcher_background">#0A0082</color>
+    <color name="launcher_background">#2563EB</color>
 </resources>
