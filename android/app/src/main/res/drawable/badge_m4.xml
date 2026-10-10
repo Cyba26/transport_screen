@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Converti depuis img/Ligne_4.svg -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="283.46"
+    android:viewportHeight="283.46">
+    <path
+        android:fillColor="#C04191"
+        android:pathData="M141.73,0A141.73,141.73 0,1 1,141.73 283.46A141.73,141.73 0,1 1,141.73 0Z" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M189.09 185.34v-23.41h-17.64V66.4h-39.17L74 157.46v27.88h67.66v31.27h29.8v-31.27zm-47.44-23.41H99.74l30.63-48.07c6-9.37 10.22-18.53 10.86-21.08h.42z" />
+</vector>

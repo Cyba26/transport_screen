@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Aperçu statique affiché dans la liste des widgets (Android 12+) -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_background"
+    android:orientation="vertical"
+    android:paddingStart="12dp"
+    android:paddingTop="8dp"
+    android:paddingEnd="12dp"
+    android:paddingBottom="8dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="28dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <ImageView
+            android:layout_width="22dp"
+            android:layout_height="22dp"
+            android:src="@drawable/badge_rer_b" />
+
+        <TextView
+            style="@style/WidgetText"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:layout_weight="1"
+            android:text="@string/preview_station"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+
+        <TextView
+            style="@style/WidgetText.Muted"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/preview_updated"
+            android:textSize="11sp" />
+
+        <ImageView
+            android:layout_width="20dp"
+            android:layout_height="20dp"
+            android:layout_marginStart="10dp"
+            android:src="@drawable/ic_refresh" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="26dp"
+        android:layout_marginTop="4dp"
+        android:gravity="center_vertical">
+
+        <TextView style="@style/WidgetText.Muted" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/preview_time_1" android:textSize="13sp" />
+        <TextView style="@style/WidgetText" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_marginStart="8dp" android:layout_weight="1" android:text="@string/preview_destination_1" android:textSize="13sp" />
+        <TextView style="@style/WidgetText.Minutes" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/preview_minutes_1" android:textSize="14sp" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="26dp"
+        android:gravity="center_vertical">
+
+        <TextView style="@style/WidgetText.Muted" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/preview_time_2" android:textSize="13sp" />
+        <TextView style="@style/WidgetText" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_marginStart="8dp" android:layout_weight="1" android:text="@string/preview_destination_2" android:textSize="13sp" />
+        <TextView style="@style/WidgetText.Minutes" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/preview_minutes_2" android:textSize="14sp" />
+    </LinearLayout>
+</LinearLayout>

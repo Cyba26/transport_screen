@@ -661,6 +661,20 @@
     padding-bottom: 8px;
   }
 
+  .apk-btn {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    color: var(--muted);
+    width: 38px; height: 38px;
+    display: flex; align-items: center; justify-content: center;
+    transition: color 0.2s, border-color 0.2s, transform 0.15s;
+    -webkit-tap-highlight-color: transparent;
+    box-shadow: var(--shadow);
+  }
+  .apk-btn:active { transform: scale(0.9); }
+  .apk-btn svg { width: 18px; height: 18px; }
+
   .refresh-btn {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -785,6 +799,9 @@
   <!-- FOOTER -->
   <div class="footer">
     <div style="display:flex;gap:8px">
+      <a class="apk-btn" id="apk-btn" href="https://github.com/Cyba26/transport_screen/releases/download/android-latest/transport-screen.apk" title="Télécharger l'appli Android" aria-label="Télécharger l'appli Android">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M5 20h14"/></svg>
+      </a>
       <button class="theme-toggle" id="theme-btn" onclick="toggleTheme()" title="Theme">🌙</button>
       <button class="refresh-btn" id="refresh-btn" onclick="fetchData()" title="Actualiser">↻</button>
     </div>
@@ -1558,6 +1575,13 @@ function applyTheme() {
 function init() {
   applyTheme();
   loadWalkForStation();
+
+  // Dans l'appli Android, le même bouton sert à installer la dernière version
+  if (navigator.userAgent.includes('TransportScreenApp')) {
+    const apkBtn = document.getElementById('apk-btn');
+    apkBtn.title = 'Mettre à jour l\'appli';
+    apkBtn.setAttribute('aria-label', apkBtn.title);
+  }
 
   document.getElementById('station-selector').classList.add('visible');
   fetchData();

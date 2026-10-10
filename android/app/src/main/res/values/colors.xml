@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Palette reprise des variables CSS de index.html -->
+<resources>
+    <color name="app_background">#F0F4FF</color>
+    <color name="widget_background">#FFFFFF</color>
+    <color name="widget_text">#0F172A</color>
+    <color name="widget_muted">#64748B</color>
+    <color name="widget_accent">#2563EB</color>
+    <color name="launcher_background">#0A0082</color>
+</resources>
