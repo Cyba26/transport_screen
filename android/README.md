@@ -21,8 +21,8 @@ aucun appel réseau.
 ## Installer l'APK
 
 1. Récupérer `transport-screen.apk` :
-   - depuis le site : lien **↓ appli Android** en bas de page (dans l'appli, il devient
-     **↻ mettre à jour l'appli** et ouvre le téléchargement dans le navigateur) ;
+   - depuis le site : bouton de téléchargement en bas de page, à gauche du thème (dans l'appli,
+     le même bouton installe la dernière version, via le navigateur) ;
    - depuis `main` : <https://github.com/Cyba26/transport_screen/releases/download/android-latest/transport-screen.apk>
    - depuis une autre branche : onglet **Actions** → workflow **APK Android** → artefact `transport-screen-apk` (un zip qui contient l'APK).
 2. L'ouvrir sur le téléphone et autoriser l'installation d'applis inconnues quand Android le demande.
