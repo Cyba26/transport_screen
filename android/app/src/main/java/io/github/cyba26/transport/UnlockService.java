@@ -58,9 +58,15 @@ public class UnlockService extends Service {
     @Override
     public void onCreate() {
         super.onCreate();
+        // Écran allumé : le chargement démarre avant même la fin du déverrouillage ;
+        // le déverrouillage qui suit est absorbé par le délai minimal de WidgetUpdater
         IntentFilter filter = new IntentFilter(Intent.ACTION_USER_PRESENT);
+        filter.addAction(Intent.ACTION_SCREEN_ON);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(unlockReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+            // EXPORTED obligatoire : USER_PRESENT est envoyé par SystemUI, qui n'a pas l'uid système,
+            // et un receiver NOT_EXPORTED ne reçoit que l'uid système ou sa propre appli.
+            // Sans risque : ces deux actions sont protégées, aucune appli ne peut les envoyer.
+            registerReceiver(unlockReceiver, filter, Context.RECEIVER_EXPORTED);
         } else {
             registerReceiver(unlockReceiver, filter);
         }

@@ -27,6 +27,8 @@ public class TransportWidgetProvider extends AppWidgetProvider {
 
     @Override
     public void onUpdate(Context context, AppWidgetManager manager, int[] widgetIds) {
+        // Relance le service s'il a été tué ; autorisé en arrière-plan avec l'exemption de batterie
+        UnlockService.start(context);
         PendingResult result = goAsync();
         WidgetUpdater.refresh(context, widgetIds, false, result::finish);
     }

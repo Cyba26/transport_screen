@@ -9,7 +9,8 @@ et ajoute un **widget d'écran d'accueil** : prochains passages d'un des trois a
   - 1 colonne : logo de ligne + minutes avant le prochain passage + heure de mise à jour ;
   - 1 ligne de haut (2×1, 4×1…) : prochain passage, les deux suivants, destination ;
   - 2 lignes et plus : liste de 2 à 6 passages (heure, destination, minutes).
-- **Mise à jour au déverrouillage** du téléphone (au plus une fois toutes les 20 s).
+- **Mise à jour au déverrouillage** du téléphone : le chargement part dès l'allumage de l'écran
+  (au plus une fois toutes les 20 s).
 - **Bouton ↻** pour actualiser à la main (en 1×1, tout le widget sert de bouton).
 - **Heure de mise à jour** affichée (`màj 08:12`) ; préfixée de ⚠ si la dernière tentative a échoué.
 - Toucher le **nom de l'arrêt** permet d'en changer ; toucher la liste ouvre l'appli.
