@@ -19,13 +19,13 @@ import android.util.Log;
  *
  * Depuis Android 8, ACTION_USER_PRESENT ne peut plus être reçu via le manifeste :
  * il faut un receiver enregistré dans un processus vivant, d'où ce service au premier plan.
- * Sa notification est de priorité minimale (et masquée d'office sur Android 13+,
- * l'application ne demandant pas la permission de notifier).
+ * Sa notification est de priorité minimale. Si les notifications de l'appli sont coupées,
+ * MainActivity affiche un bandeau qui renvoie vers les réglages Android.
  */
 public class UnlockService extends Service {
 
     private static final String TAG = "TransportWidget";
-    private static final String CHANNEL_ID = "unlock_refresh";
+    static final String CHANNEL_ID = "unlock_refresh";
     private static final int NOTIFICATION_ID = 1;
 
     private final BroadcastReceiver unlockReceiver = new BroadcastReceiver() {

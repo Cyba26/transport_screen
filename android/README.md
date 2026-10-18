@@ -36,8 +36,10 @@ donc il s'installe par-dessus l'ancien sans désinstaller.
 
 Android ne prévient plus une appli d'un déverrouillage si elle ne tourne pas. L'appli garde donc
 un petit service actif tant qu'au moins un widget est posé. Il se manifeste par une notification
-« Widget transport actif » en priorité minimale (rien du tout sur Android 13+, l'appli ne
-demandant pas le droit de notifier).
+« Widget transport actif » en priorité minimale. Si les notifications de l'appli sont coupées,
+un bandeau rouge s'affiche en haut de l'appli avec un bouton **Activer** qui ouvre la page
+des notifications dans les réglages Android : sans notification visible, le système arrête plus
+facilement le service.
 
 Sur Realme / Oppo / Xiaomi, le système tue ce genre de service. Pour l'éviter :
 

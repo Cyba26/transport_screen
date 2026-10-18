@@ -42,6 +42,8 @@
     <string name="unlock_notification_text">Actualisé à chaque déverrouillage</string>
 
     <!-- Appli -->
+    <string name="notifications_disabled">Notifications désactivées : le widget risque de ne plus se mettre à jour au déverrouillage.</string>
+    <string name="notifications_enable">Activer</string>
     <string name="offline_message">Impossible de charger le tableau de bord.</string>
     <string name="offline_retry">Réessayer</string>
 </resources>

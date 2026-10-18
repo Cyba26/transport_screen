@@ -2,12 +2,16 @@ package io.github.cyba26.transport;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.graphics.Insets;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.provider.Settings;
+import android.view.View;
 import android.view.WindowInsets;
 import android.webkit.RenderProcessGoneDetail;
 import android.webkit.WebResourceError;
@@ -16,19 +20,22 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.FrameLayout;
+import android.widget.LinearLayout;
 
 /** Le tableau de bord web (index.html sur Vercel) dans une WebView plein écran. */
 public class MainActivity extends Activity {
 
     private static final String HOST = Uri.parse(BuildConfig.BASE_URL).getHost();
 
-    private FrameLayout root;
+    private FrameLayout webContainer;
+    private View notificationBanner;
     private WebView webView;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        root = new FrameLayout(this);
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(getColor(R.color.app_background));
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             // Android 15 dessine sous les barres système : on garde la page en dehors
@@ -38,6 +45,12 @@ public class MainActivity extends Activity {
                 return WindowInsets.CONSUMED;
             });
         }
+        notificationBanner = getLayoutInflater().inflate(R.layout.view_notification_banner, root, false);
+        notificationBanner.findViewById(R.id.notification_settings_button)
+                .setOnClickListener(v -> openNotificationSettings());
+        root.addView(notificationBanner);
+        webContainer = new FrameLayout(this);
+        root.addView(webContainer, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1));
         setContentView(root);
         createWebView();
         if (savedInstanceState == null || webView.restoreState(savedInstanceState) == null) {
@@ -77,14 +90,14 @@ public class MainActivity extends Activity {
             @Override
             public boolean onRenderProcessGone(WebView view, RenderProcessGoneDetail detail) {
                 // Le moteur de rendu a planté : on repart sur une WebView neuve
-                root.removeView(view);
+                webContainer.removeView(view);
                 view.destroy();
                 createWebView();
                 webView.loadUrl(BuildConfig.BASE_URL);
                 return true;
             }
         });
-        root.addView(webView, new FrameLayout.LayoutParams(
+        webContainer.addView(webView, new FrameLayout.LayoutParams(
                 FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
     }
 
@@ -101,8 +114,32 @@ public class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         webView.onResume();
+        // Revérifié à chaque retour : le bandeau disparaît dès que l'utilisateur a activé les notifications
+        notificationBanner.setVisibility(notificationsEnabled() ? View.GONE : View.VISIBLE);
         // Les minuteries JS sont gelées en arrière-plan : on rafraîchit dès le retour
         webView.evaluateJavascript("if (typeof fetchData === 'function') fetchData();", null);
+    }
+
+    /**
+     * Sans notification visible, Android (et surtout Realme, Xiaomi…) arrête plus facilement le service
+     * qui met le widget à jour au déverrouillage.
+     */
+    private boolean notificationsEnabled() {
+        NotificationManager manager = getSystemService(NotificationManager.class);
+        if (!manager.areNotificationsEnabled()) return false;
+        NotificationChannel channel = manager.getNotificationChannel(UnlockService.CHANNEL_ID);
+        return channel == null || channel.getImportance() != NotificationManager.IMPORTANCE_NONE;
+    }
+
+    private void openNotificationSettings() {
+        Intent intent = new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                .putExtra(Settings.EXTRA_APP_PACKAGE, getPackageName());
+        try {
+            startActivity(intent);
+        } catch (ActivityNotFoundException e) {
+            startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                    Uri.parse("package:" + getPackageName())));
+        }
     }
 
     @Override
