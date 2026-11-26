@@ -16,8 +16,9 @@ et ajoute un **widget d'écran d'accueil** : prochains passages d'un des trois a
 - Toucher le **nom de l'arrêt** permet d'en changer ; toucher la liste ouvre l'appli.
 - Suit le thème clair/sombre du téléphone.
 
-Pas d'actualisation périodique : en dehors du déverrouillage et du bouton, le widget ne fait
-aucun appel réseau.
+Tant que l'écran reste allumé, les minutes restantes sont recalculées toutes les 30 s (sans
+réseau) et les passages rechargés toutes les 2 min. Écran éteint, le widget ne fait aucun appel
+réseau.
 
 ## Installer l'APK
 

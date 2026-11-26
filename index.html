@@ -814,17 +814,20 @@
 // Convert SNCF API departures to PRIM-like MonitoredStopVisit format
 function sncfToVisits(departures) {
   return departures.map(dep => {
-    const raw = dep.stop_date_time?.departure_date_time || dep.stop_date_time?.arrival_date_time;
-    // Format: "20260409T102500" → ISO
-    const iso = raw ? raw.replace(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})$/, '$1-$2-$3T$4:$5:$6') : null;
+    const sdt = dep.stop_date_time || {};
+    // Format: "20260409T102500" (heure de Paris) → ISO
+    const toIso = raw => raw ? raw.replace(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})$/, '$1-$2-$3T$4:$5:$6') : null;
+    // departure_date_time intègre le temps réel ; base_departure_date_time est l'horaire prévu
+    const iso = toIso(sdt.departure_date_time || sdt.arrival_date_time);
+    const baseIso = toIso(sdt.base_departure_date_time || sdt.base_arrival_date_time) || iso;
     return {
       MonitoredVehicleJourney: {
         LineRef: { value: 'STIF:Line::C01743:' },
         DestinationName: [{ value: dep.display_informations?.direction || '' }],
         JourneyNote: [{ value: dep.display_informations?.headsign || '' }],
         MonitoredCall: {
-          AimedDepartureTime: iso,
-          ExpectedDepartureTime: dep.stop_date_time?.data_freshness === 'realtime' ? iso : null,
+          AimedDepartureTime: baseIso,
+          ExpectedDepartureTime: sdt.data_freshness === 'realtime' ? iso : null,
         }
       }
     };
@@ -838,7 +841,11 @@ const STATIONS = {
     lineRef: "STIF:Line::C01743:",
     lineName: "B",
     lineImg: "img/RER_B.svg",
-    filterDest: dest => !['robinson','massy','palaiseau','orsay','gif','saint-rémy','limours','laplace'].some(k => dest.includes(k)),
+    // Direction Paris uniquement : on écarte tout train dont le terminus est au sud de Laplace
+    // (ou à Laplace). Les destinations sont comparées en minuscules et sans accents.
+    filterDest: dest => !['robinson','sceaux','fontenay','croix de berny','antony','bourg-la-reine',
+                          'bagneux','arcueil','massy','palaiseau','lozere','guichet','orsay','bures',
+                          'hacquiniere','gif','courcelle','saint-remy','limours','laplace'].some(k => dest.includes(k)),
     // Arrets sur MON trajet (Laplace → Chatelet max)
     myStops: ['laplace','arcueil','bagneux','gentilly','denfert','port-royal','luxembourg',
               'saint-michel','chatelet','les halles'],
@@ -883,6 +890,13 @@ const REFRESH_INTERVAL = 30000; // 30s
 let walkMinutes = 5;
 let currentStation = 'laplace';
 let refreshTimer = null;
+// Incrémenté à chaque chargement : une réponse arrivée après un changement de station
+// (ou après un chargement plus récent) est ignorée au lieu d'écraser l'affichage.
+let fetchSeq = 0;
+
+function normalizeText(s) {
+  return (s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+}
 
 // ─── API PROXY ───────────────────────────────────────────
 
@@ -923,7 +937,7 @@ function toggleWalkPopup() {
 }
 
 function renderTrainsFromCache() {
-  if (window._lastTrains) renderTrains(window._lastTrains);
+  if (window._lastTrains && window._lastTrainsStation === currentStation) renderTrains(window._lastTrains);
 }
 
 // ─── STATION SWITCH ───────────────────────────────────────
@@ -931,6 +945,7 @@ function switchStation(el) {
   document.querySelectorAll('.station-pill').forEach(p => p.classList.remove('active'));
   el.classList.add('active');
   currentStation = el.dataset.station;
+  window._lastTrains = null;
   const st = STATIONS[currentStation];
   document.getElementById('station-name').textContent = st.name;
   document.getElementById('line-badge').src = st.lineImg;
@@ -965,7 +980,9 @@ async function fetchData() {
   const btn = document.getElementById('refresh-btn');
   btn.classList.add('spinning');
 
-  const station = STATIONS[currentStation];
+  const seq = ++fetchSeq;
+  const stationKey = currentStation;
+  const station = STATIONS[stationKey];
   const pertUrl = `/api/proxy?endpoint=general-message&LineRef=${station.lineRef}`;
   const passagesUrl = station.sncfStopAreaId
     ? `/api/proxy?endpoint=sncf-departures&stop_area_id=${station.sncfStopAreaId}&count=20`
@@ -975,19 +992,31 @@ async function fetchData() {
     // Fetch passages + perturbations in parallel via proxy
     const [passagesRes, pertRes] = await Promise.all([fetch(passagesUrl), fetch(pertUrl)]);
     const passagesData = await passagesRes.json();
+    // La station a changé (ou un chargement plus récent est parti) pendant la requête
+    if (seq !== fetchSeq) return;
 
     let visits;
     if (station.sncfStopAreaId) {
-      visits = sncfToVisits(passagesData?.departures || []);
+      // Une erreur de l'API SNCF (clé, quota, arrêt inconnu…) n'a pas de tableau "departures" :
+      // on l'affiche au lieu de faire croire qu'aucun train ne passe.
+      if (!Array.isArray(passagesData?.departures)) {
+        const msg = passagesData?.error?.message || passagesData?.message || passagesData?.error || `HTTP ${passagesRes.status}`;
+        throw new Error(typeof msg === 'string' ? msg : JSON.stringify(msg));
+      }
+      visits = sncfToVisits(passagesData.departures);
     } else {
-      if (!passagesRes.ok && !passagesData?.Siri) throw new Error(`HTTP ${passagesRes.status}`);
-      visits = passagesData?.Siri?.ServiceDelivery?.StopMonitoringDelivery?.[0]?.MonitoredStopVisit || [];
+      if (!passagesData?.Siri) {
+        throw new Error(passagesData?.message || passagesData?.error || `HTTP ${passagesRes.status}`);
+      }
+      visits = passagesData.Siri.ServiceDelivery?.StopMonitoringDelivery?.[0]?.MonitoredStopVisit || [];
     }
     window._lastTrains = visits;
+    window._lastTrainsStation = stationKey;
     renderTrains(visits);
 
     if (pertRes.ok) {
       const pertData = await pertRes.json();
+      if (seq !== fetchSeq) return;
       const messages = pertData?.Siri?.ServiceDelivery?.GeneralMessageDelivery?.[0]?.InfoMessage || [];
       renderPerturbations(messages);
     }
@@ -998,6 +1027,7 @@ async function fetchData() {
     document.getElementById('pulse-dot').style.background = 'var(--ok)';
 
   } catch (err) {
+    if (seq !== fetchSeq) return;
     console.error('Fetch error:', err, passagesUrl);
     document.getElementById('trains-list').innerHTML = `
       <div class="error-card">
@@ -1006,9 +1036,9 @@ async function fetchData() {
         <small style="opacity:0.6;word-break:break-all">${err.message}</small>
       </div>`;
     document.getElementById('pulse-dot').style.background = 'var(--danger)';
+  } finally {
+    if (seq === fetchSeq) btn.classList.remove('spinning');
   }
-
-  btn.classList.remove('spinning');
 }
 
 // ─── RENDER TRAINS ────────────────────────────────────────
@@ -1024,7 +1054,7 @@ function renderTrains(visits) {
   );
   const pool = lineFiltered.length > 0 ? lineFiltered : visits;
   let dirFiltered = pool.filter(v => {
-    const dest = (v.MonitoredVehicleJourney?.DestinationName?.[0]?.value || '').toLowerCase();
+    const dest = normalizeText(v.MonitoredVehicleJourney?.DestinationName?.[0]?.value);
     return station.filterDest(dest);
   });
 
@@ -1037,13 +1067,19 @@ function renderTrains(visits) {
   // Compute adjusted minutes for each train
   const withTiming = candidates.map(v => {
     const call = v.MonitoredVehicleJourney?.MonitoredCall;
-    const rawTime = call?.ExpectedDepartureTime || call?.AimedDepartureTime || call?.ExpectedArrivalTime || call?.AimedArrivalTime;
+    // Le temps réel (Expected) prime sur le théorique (Aimed), même s'il n'est fourni qu'à l'arrivée :
+    // sinon un train en retard s'affichait à son heure prévue.
+    const rawTime = call?.ExpectedDepartureTime || call?.ExpectedArrivalTime || call?.AimedDepartureTime || call?.AimedArrivalTime;
     if (!rawTime) return null;
     const depTime = new Date(rawTime);
+    if (isNaN(depTime)) return null;
     const diffMins = Math.round((depTime - now) / 60000);
     const adjustedMins = diffMins - walkMinutes;
     return { visit: v, depTime, diffMins, adjustedMins };
-  }).filter(Boolean);
+  }).filter(Boolean)
+    // L'API ne garantit pas l'ordre chronologique (PRIM regroupe souvent par destination) :
+    // sans ce tri, « prochain train », « raté » et la fréquence étaient faux.
+    .sort((a, b) => a.depTime - b.depTime);
 
   // Split missed vs catchable (based on walk time)
   const missed = withTiming.filter(t => t.adjustedMins <= 0);
@@ -1586,6 +1622,17 @@ function init() {
   document.getElementById('station-selector').classList.add('visible');
   fetchData();
   refreshTimer = setInterval(fetchData, REFRESH_INTERVAL);
+
+  // En arrière-plan (onglet caché, appli Android en pause, écran éteint) les minuteries sont
+  // suspendues : au retour, les horaires affichés pouvaient dater de plusieurs heures.
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible') return;
+    renderTrainsFromCache();
+    fetchData();
+    clearInterval(refreshTimer);
+    refreshTimer = setInterval(fetchData, REFRESH_INTERVAL);
+    if ('wakeLock' in navigator) navigator.wakeLock.request('screen').catch(() => {});
+  });
 
   if ('wakeLock' in navigator) {
     navigator.wakeLock.request('screen').catch(() => {});

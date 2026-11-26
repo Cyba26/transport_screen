@@ -9,8 +9,10 @@ final class Station {
     static final Station[] ALL = {
             new Station("laplace", "Laplace", "RER B", R.drawable.badge_rer_b,
                     "STIF:Line::C01743:", "stop_area:SNCF:87758664", null,
-                    // Direction Paris uniquement : on écarte la branche sud et les terminus Laplace
-                    new String[]{"robinson", "massy", "palaiseau", "orsay", "gif", "saint-remy", "limours", "laplace"}),
+                    // Direction Paris uniquement : on écarte tout terminus au sud de Laplace (ou Laplace)
+                    new String[]{"robinson", "sceaux", "fontenay", "croix de berny", "antony", "bourg-la-reine",
+                            "bagneux", "arcueil", "massy", "palaiseau", "lozere", "guichet", "orsay", "bures",
+                            "hacquiniere", "gif", "courcelle", "saint-remy", "limours", "laplace"}),
             new Station("bicetre", "Hôp. Bicêtre", "Métro 14", R.drawable.badge_m14,
                     "STIF:Line::C01384:", null, "STIF:StopPoint:Q:490849:", new String[0]),
             new Station("barbara", "Barbara", "Métro 4", R.drawable.badge_m4,

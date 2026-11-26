@@ -96,8 +96,9 @@ final class TransportApi {
             JSONObject call = journey.optJSONObject("MonitoredCall");
             if (call == null) continue;
 
-            String raw = firstNonEmpty(call, "ExpectedDepartureTime", "AimedDepartureTime",
-                    "ExpectedArrivalTime", "AimedArrivalTime");
+            // Le temps réel (Expected) prime sur le théorique, même s'il n'est fourni qu'à l'arrivée
+            String raw = firstNonEmpty(call, "ExpectedDepartureTime", "ExpectedArrivalTime",
+                    "AimedDepartureTime", "AimedArrivalTime");
             Long time = parseIso(raw);
             if (time == null) continue;
 
