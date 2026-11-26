@@ -997,9 +997,10 @@ async function fetchData() {
 
     let visits;
     if (station.sncfStopAreaId) {
-      // Une erreur de l'API SNCF (clé, quota, arrêt inconnu…) n'a pas de tableau "departures" :
-      // on l'affiche au lieu de faire croire qu'aucun train ne passe.
-      if (!Array.isArray(passagesData?.departures)) {
+      // Une erreur de l'API SNCF (clé, quota, arrêt inconnu…) arrive en HTTP 200 avec un objet
+      // "error" et souvent un tableau "departures" vide : on l'affiche au lieu de faire croire
+      // qu'aucun train ne passe.
+      if (passagesData?.error || !Array.isArray(passagesData?.departures)) {
         const msg = passagesData?.error?.message || passagesData?.message || passagesData?.error || `HTTP ${passagesRes.status}`;
         throw new Error(typeof msg === 'string' ? msg : JSON.stringify(msg));
       }

@@ -60,7 +60,8 @@ final class TransportApi {
 
     private static List<Departure> parseSncf(JSONObject json) throws JSONException, IOException {
         JSONArray items = json.optJSONArray("departures");
-        if (items == null) throw new IOException(apiError(json));
+        // Navitia renvoie ses erreurs (arrêt inconnu…) en HTTP 200 avec "error" et une liste vide
+        if (items == null || json.has("error")) throw new IOException(apiError(json));
 
         List<Departure> departures = new ArrayList<>();
         for (int i = 0; i < items.length(); i++) {
@@ -147,6 +148,8 @@ final class TransportApi {
     }
 
     private static String apiError(JSONObject json) {
+        JSONObject error = json.optJSONObject("error");
+        if (error != null && !error.optString("message").isEmpty()) return error.optString("message");
         String message = json.optString("message", json.optString("error", ""));
         return message.isEmpty() ? "Réponse API inattendue" : message;
     }

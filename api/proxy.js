@@ -15,6 +15,10 @@ export default async function handler(req, res) {
       if (!sncfKey) return res.status(500).json({ error: 'SNCF API key not configured' });
 
       const { stop_area_id, count = 20 } = params;
+      // Identifiant inséré dans le chemin : on refuse tout ce qui n'est pas un ID Navitia
+      if (!/^[A-Za-z0-9:_.-]+$/.test(stop_area_id || '') || !/^\d{1,3}$/.test(String(count))) {
+        return res.status(400).json({ error: 'Invalid stop_area_id or count' });
+      }
       const url = `https://api.sncf.com/v1/coverage/sncf/stop_areas/${stop_area_id}/departures?count=${count}`;
       const response = await fetch(url, {
         headers: { 'Authorization': 'Basic ' + Buffer.from(sncfKey + ':').toString('base64') }
