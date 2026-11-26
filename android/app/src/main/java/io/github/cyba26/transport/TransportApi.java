@@ -44,7 +44,7 @@ final class TransportApi {
             } else {
                 JSONObject json = getJson(proxyUrl("stop-monitoring",
                         "MonitoringRef", station.primMonitoringRef, "LineRef", station.lineRef));
-                departures = parsePrim(json, station.lineRef);
+                departures = parsePrim(json, station.lineRef, station.directionRef);
             }
 
             List<Departure> result = new ArrayList<>();
@@ -81,7 +81,8 @@ final class TransportApi {
         return departures;
     }
 
-    private static List<Departure> parsePrim(JSONObject json, String lineRef) throws JSONException, IOException {
+    private static List<Departure> parsePrim(JSONObject json, String lineRef, String directionRef)
+            throws JSONException, IOException {
         JSONObject siri = json.optJSONObject("Siri");
         if (siri == null) throw new IOException(apiError(json));
         JSONArray deliveries = siri.getJSONObject("ServiceDelivery").optJSONArray("StopMonitoringDelivery");
@@ -96,6 +97,11 @@ final class TransportApi {
             if (journey == null) continue;
             JSONObject call = journey.optJSONObject("MonitoredCall");
             if (call == null) continue;
+            if (directionRef != null) {
+                JSONObject dirObj = journey.optJSONObject("DirectionRef");
+                String dir = dirObj != null ? dirObj.optString("value") : journey.optString("DirectionRef");
+                if (!dir.isEmpty() && !directionRef.equals(dir)) continue;
+            }
 
             // Le temps réel (Expected) prime sur le théorique, même s'il n'est fourni qu'à l'arrivée
             String raw = firstNonEmpty(call, "ExpectedDepartureTime", "ExpectedArrivalTime",

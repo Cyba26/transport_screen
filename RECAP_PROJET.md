@@ -40,7 +40,7 @@ Elle affiche les **prochains passages en temps réel** des transports depuis 3 s
 - **Ligne** : RER B
 - **StopArea ID** : `STIF:StopArea:SP:43607:`
 - **Line ID** : `STIF:Line::C01743:`
-- **Direction** : Nord (vers Paris / CDG) — exclut Robinson, Massy, Palaiseau...
+- **Direction** : Nord (vers Paris / CDG) — `DirectionRef` = `Retour` (quai 2), plus exclusion des terminus sud. La zone renvoie les deux sens. L'API SNCF ne trouve plus cet arrêt (`unknown_object`).
 
 ### 2. Hôpital Bicêtre
 - **Ligne** : Métro 14

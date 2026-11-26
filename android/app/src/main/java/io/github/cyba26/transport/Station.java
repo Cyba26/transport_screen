@@ -8,15 +8,16 @@ final class Station {
 
     static final Station[] ALL = {
             new Station("laplace", "Laplace", "RER B", R.drawable.badge_rer_b,
-                    "STIF:Line::C01743:", "stop_area:SNCF:87758664", null,
+                    // PRIM : la zone d'arrêt renvoie les deux sens, DirectionRef "Retour" = vers Paris
+                    "STIF:Line::C01743:", null, "STIF:StopArea:SP:43607:", "Retour",
                     // Direction Paris uniquement : on écarte tout terminus au sud de Laplace (ou Laplace)
                     new String[]{"robinson", "sceaux", "fontenay", "croix de berny", "antony", "bourg-la-reine",
                             "bagneux", "arcueil", "massy", "palaiseau", "lozere", "guichet", "orsay", "bures",
                             "hacquiniere", "gif", "courcelle", "saint-remy", "limours", "laplace"}),
             new Station("bicetre", "Hôp. Bicêtre", "Métro 14", R.drawable.badge_m14,
-                    "STIF:Line::C01384:", null, "STIF:StopPoint:Q:490849:", new String[0]),
+                    "STIF:Line::C01384:", null, "STIF:StopPoint:Q:490849:", null, new String[0]),
             new Station("barbara", "Barbara", "Métro 4", R.drawable.badge_m4,
-                    "STIF:Line::C01374:", null, "STIF:StopPoint:Q:483277:", new String[0]),
+                    "STIF:Line::C01374:", null, "STIF:StopPoint:Q:483277:", null, new String[0]),
     };
 
     final String id;
@@ -28,11 +29,14 @@ final class Station {
     final String sncfStopAreaId;
     /** MonitoringRef de l'API PRIM (stop-monitoring). */
     final String primMonitoringRef;
+    /** DirectionRef SIRI à garder (null = pas de filtre, l'arrêt ne voit qu'un sens). */
+    final String directionRef;
     /** Mots-clés (minuscules, sans accents) des destinations à ignorer. */
     private final String[] excludedDestinations;
 
     private Station(String id, String name, String lineLabel, int badgeRes, String lineRef,
-                    String sncfStopAreaId, String primMonitoringRef, String[] excludedDestinations) {
+                    String sncfStopAreaId, String primMonitoringRef, String directionRef,
+                    String[] excludedDestinations) {
         this.id = id;
         this.name = name;
         this.lineLabel = lineLabel;
@@ -40,6 +44,7 @@ final class Station {
         this.lineRef = lineRef;
         this.sncfStopAreaId = sncfStopAreaId;
         this.primMonitoringRef = primMonitoringRef;
+        this.directionRef = directionRef;
         this.excludedDestinations = excludedDestinations;
     }
 

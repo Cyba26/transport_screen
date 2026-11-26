@@ -837,7 +837,10 @@ function sncfToVisits(departures) {
 const STATIONS = {
   laplace: {
     name: "Laplace",
-    sncfStopAreaId: "stop_area:SNCF:87758664",
+    // PRIM : la zone d'arrêt renvoie les deux sens ; l'API SNCF ne trouve plus cet arrêt
+    stopAreaId: "STIF:StopArea:SP:43607:",
+    // Sens Paris / CDG (quai 2). "Aller" = vers Robinson / Saint-Rémy.
+    directionRef: "Retour",
     lineRef: "STIF:Line::C01743:",
     lineName: "B",
     lineImg: "img/RER_B.svg",
@@ -1055,6 +1058,11 @@ function renderTrains(visits) {
   );
   const pool = lineFiltered.length > 0 ? lineFiltered : visits;
   let dirFiltered = pool.filter(v => {
+    if (station.directionRef) {
+      const dirRef = v.MonitoredVehicleJourney?.DirectionRef;
+      const dir = typeof dirRef === 'string' ? dirRef : dirRef?.value;
+      if (dir && dir !== station.directionRef) return false;
+    }
     const dest = normalizeText(v.MonitoredVehicleJourney?.DestinationName?.[0]?.value);
     return station.filterDest(dest);
   });

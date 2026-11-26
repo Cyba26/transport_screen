@@ -74,7 +74,7 @@ pas pour le Play Store.
 | Fichier | Rôle |
 | --- | --- |
 | `Station.java` | Les 3 arrêts (IDs, filtre de direction), miroir de `STATIONS` dans `index.html` |
-| `TransportApi.java` | Appel de `/api/proxy` (SNCF pour Laplace, PRIM pour les métros) et parsing |
+| `TransportApi.java` | Appel de `/api/proxy` (PRIM stop-monitoring) et parsing |
 | `WidgetStore.java` | Arrêt de chaque widget + derniers passages connus (SharedPreferences) |
 | `WidgetUpdater.java` | Chargement réseau (un seul à la fois) puis redessin des widgets |
 | `WidgetRenderer.java` | Les mises en page selon la taille du widget |
